@@ -12,10 +12,12 @@ NGINX/Apache Webserver, PHP (with curl and PDO), MySQL/MariaDB, SMTP server to s
 5. Go to Microsoft Entra, Identity > Applications > App Registrations > + New Registration, give your app a name you can identify
 6. Take note of your: Application (client) ID, and Directory (tenant) ID
 7. Go to Certificate & Secrets, click on + New Client Secret, give it a name, done. Take note of the "Value" of this secret.
-8. On MariaDB or MySQL create your table. Run the required setup. The commands are on the dbsetup.txt file. Make sure you update your admin password hash (it's in Bcrypt), feel free to use a different admin username.
-9. Fill in the generic_secrets.php file with the required information. Rename the file to secrets.php
-10. Setup cron to run php and trigger run_background_task.php. I recommend every 15 minutes, more or less frequent depending on how busy your org is. Just don't abuse it to avoid the wrath of the Microsoft gods. Feel free to pipe the output to a log file to help track changes or errors.
-11. Also, the index.php has a manual trigger button for the background tasks. Make sure you update the log path on line 94 where you want to save the logs.
+8. Under API permission, + Add a permission > Microsoft Graph > Applications Permissions (runs in background without signed in user) > include: AuditLog.Read.All, and User.Read.All
+9. Click on "Grant admin consent" to authorize the app to use these permissions.
+10. On MariaDB or MySQL create your table. Run the required setup. The commands are on the dbsetup.txt file. Make sure you update your admin password hash (it's in Bcrypt), feel free to use a different admin username.
+11. Fill in the generic_secrets.php file with the required information. Rename the file to secrets.php
+12. Setup cron to run php and trigger run_background_task.php. I recommend every 15 minutes, more or less frequent depending on how busy your org is. Just don't abuse it to avoid the wrath of the Microsoft gods. Feel free to pipe the output to a log file to help track changes or errors.
+13. Also, the index.php has a manual trigger button for the background tasks. Make sure you update the log path on line 94 where you want to save the logs.
 
 # Considerations
 You may want to add captcha on the web ui login, or basic auth. You can also use zero trust to hide the web ui from public.
