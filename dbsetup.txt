@@ -1,0 +1,48 @@
+-- This table stores the administrator accounts used to log into the web UI.
+CREATE TABLE `admins` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `username` VARCHAR(255) NOT NULL UNIQUE,
+  `password_hash` VARCHAR(255) NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- This command inserts a default admin user.
+-- Username: admin
+-- Password: password
+-- It is highly recommended to change this password after your first login.
+INSERT INTO `admins` (`username`, `password_hash`) VALUES ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi');
+
+
+-- This table caches geolocation data for IP addresses to minimize external API calls.
+CREATE TABLE `ip_geolocation_cache` (
+  `ip_address` VARCHAR(45) PRIMARY KEY,
+  `country` VARCHAR(255) NULL,
+  `region` VARCHAR(255) NULL,
+  `city` VARCHAR(255) NULL,
+  `lat` DECIMAL(10, 8) NULL,
+  `lon` DECIMAL(11, 8) NULL,
+  `isp` VARCHAR(255) NULL,
+  `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+
+-- This table stores the processed sign-in logs from Microsoft Entra.
+CREATE TABLE `login_logs` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `entra_log_id` VARCHAR(255) NOT NULL UNIQUE,
+  `user_id` VARCHAR(255) NOT NULL,
+  `user_principal_name` VARCHAR(255) NOT NULL,
+  `ip_address` VARCHAR(45) NOT NULL,
+  `login_time` DATETIME NOT NULL,
+  `status` VARCHAR(255) NULL,
+  `country` VARCHAR(255) NULL,
+  `city` VARCHAR(255) NULL,
+  `lat` DECIMAL(10, 8) NULL,
+  `lon` DECIMAL(11, 8) NULL,
+  `is_impossible_travel` BOOLEAN DEFAULT FALSE,
+  `travel_speed_kph` DECIMAL(10, 2) NULL,
+  `previous_log_id` INT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `user_id_idx` (`user_id`),
+  INDEX `login_time_idx` (`login_time`)
+);
