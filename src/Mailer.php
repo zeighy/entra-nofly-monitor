@@ -5,10 +5,6 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 class Mailer {
-    /**
-     * Sends a single consolidated email with all impossible travel incidents from a run.
-     * @param array $incidents
-     */
     public static function sendConsolidatedAlert(array $incidents): void {
         if (empty($incidents)) {
             return;
@@ -16,7 +12,6 @@ class Mailer {
 
         $mail = new PHPMailer(true);
         try {
-            // Server settings
             $mail->isSMTP();
             $mail->Host       = $_ENV['SMTP_HOST'];
             $mail->SMTPAuth   = true;
@@ -25,7 +20,6 @@ class Mailer {
             $mail->SMTPSecure = $_ENV['SMTP_SECURE'];
             $mail->Port       = $_ENV['SMTP_PORT'];
 
-            // Recipients
             $mail->setFrom($_ENV['SMTP_FROM_EMAIL'], $_ENV['SMTP_FROM_NAME']);
             $mail->addAddress($_ENV['ADMIN_ALERT_EMAIL']);
 
@@ -39,37 +33,41 @@ class Mailer {
                 }
             }
 
-            // --- Build the Consolidated Email Body ---
             $incidentCount = count($incidents);
-            $body = "<h2>Consolidated Impossible Travel Alert</h2>";
-            $body .= "<p>Found <strong>" . $incidentCount . "</strong> impossible travel incident(s) during the last scan.</p>";
+            $body = "<h2>Consolidated Security Alert</h2>";
+            $body .= "<p>Found <strong>" . $incidentCount . "</strong> notable incident(s) during the last scan.</p>";
 
             foreach ($incidents as $index => $incident) {
                 $currentLog = $incident['current_log'];
                 $previousLog = $incident['previous_log'];
-                $speed = $incident['speed'];
 
-                $body .= "<hr><h3>Incident #" . ($index + 1) . ": " . htmlspecialchars($currentLog['user_principal_name']) . "</h3>";
-                $body .= "<p><strong>Calculated Speed:</strong> " . round($speed) . " km/h</p>";
-                
+                if ($incident['type'] === 'impossible_travel') {
+                    $speed = $incident['speed'];
+                    $body .= "<hr><h3>Incident #" . ($index + 1) . ": Impossible Travel</h3>";
+                    $body .= "<p><strong>User:</strong> " . htmlspecialchars($currentLog['user_principal_name']) . "</p>";
+                    $body .= "<p><strong>Calculated Speed:</strong> " . round($speed) . " km/h</p>";
+                } elseif ($incident['type'] === 'region_change') {
+                    $body .= "<hr><h3>Incident #" . ($index + 1) . ": Region Change</h3>";
+                    $body .= "<p><strong>User:</strong> " . htmlspecialchars($currentLog['user_principal_name']) . "</p>";
+                }
+
                 $body .= "<h4>Previous Login (From):</h4>";
                 $body .= "<p>
                             <strong>Time:</strong> " . $previousLog['login_time'] . " UTC<br>
-                            <strong>IP Address:</strong> " . htmlspecialchars($previousLog['ip_address']) . "<br>
-                            <strong>Location:</strong> " . htmlspecialchars($previousLog['city'] ?? 'N/A') . ", " . htmlspecialchars($previousLog['country'] ?? 'N/A') . "
+                            <strong>Location:</strong> " . htmlspecialchars(($previousLog['city'] ?? 'N/A') . ', ' . ($previousLog['region'] ?? 'N/A') . ', ' . ($previousLog['country'] ?? 'N/A')) . "<br>
+                            <strong>IP Address:</strong> " . htmlspecialchars($previousLog['ip_address']) . "
                          </p>";
 
                 $body .= "<h4>Current Login (To):</h4>";
                 $body .= "<p>
                             <strong>Time:</strong> " . $currentLog['login_time'] . " UTC<br>
-                            <strong>IP Address:</strong> " . htmlspecialchars($currentLog['ip_address']) . "<br>
-                            <strong>Location:</strong> " . htmlspecialchars($currentLog['city'] ?? 'N/A') . ", " . htmlspecialchars($currentLog['country'] ?? 'N/A') . "
+                            <strong>Location:</strong> " . htmlspecialchars(($currentLog['city'] ?? 'N/A') . ', ' . ($currentLog['region'] ?? 'N/A') . ', ' . ($currentLog['country'] ?? 'N/A')) . "<br>
+                            <strong>IP Address:</strong> " . htmlspecialchars($currentLog['ip_address']) . "
                          </p>";
             }
 
-            // Content
             $mail->isHTML(true);
-            $mail->Subject = "Impossible Travel Alert: " . $incidentCount . " incident(s) detected";
+            $mail->Subject = "Security Alert: " . $incidentCount . " incident(s) detected";
             $mail->Body    = $body;
 
             $mail->send();
