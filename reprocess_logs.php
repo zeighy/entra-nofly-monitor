@@ -24,20 +24,17 @@ foreach ($secrets as $key => $value) {
 }
 
 use App\Database;
-use App\Mailer; // Import the Mailer class
+use App\Mailer;
 
 try {
     $db = Database::getInstance();
     echo "Database connection successful.\n";
 
-    // First, reset all existing flags to ensure a clean slate
     echo "Resetting all existing alert flags in the database...\n";
     $db->query("UPDATE login_logs SET is_impossible_travel = 0, is_region_change = 0, travel_speed_kph = NULL, previous_log_id = NULL");
+    $db->query("TRUNCATE TABLE email_alerts"); // Also clear the email log
 
-    // Fetch all logs, ordered chronologically for each user
-    $allLogsStmt = $db->prepare(
-        "SELECT * FROM login_logs ORDER BY user_id, login_time ASC"
-    );
+    $allLogsStmt = $db->prepare("SELECT * FROM login_logs ORDER BY user_id, login_time ASC");
     $allLogsStmt->execute();
     $allLogs = $allLogsStmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -49,7 +46,7 @@ try {
     echo "Found " . count($allLogs) . " total logs to re-process.\n\n";
 
     $totalUpdated = 0;
-    $incidentsForEmail = []; // Array to hold incidents for the email digest
+    $incidentsForEmail = [];
     $userHistories = [];
 
     foreach ($allLogs as $currentLog) {
@@ -59,8 +56,8 @@ try {
 
         $maxSpeedKph = 0;
         $fastestPreviousLog = null;
-        $regionChangeDetected = false;
-        $regionChangePreviousLog = null;
+        $isRegionChangeForUi = false;
+        $regionChangePreviousLogForUi = null;
         $loginWasSuccessful = ($currentLog['status'] === 'Success');
 
         if (isset($userHistories[$userId])) {
@@ -71,7 +68,7 @@ try {
                     continue; 
                 }
 
-                if (!$regionChangeDetected &&
+                if (!$isRegionChangeForUi &&
                     $previousLog['ip_address'] !== $currentLog['ip_address'] &&
                     !empty($previousLog['region']) &&
                     !empty($currentLog['region']) &&
@@ -80,8 +77,17 @@ try {
                     $previousLog['status'] === 'Success'
                    )
                 {
-                    $regionChangeDetected = true;
-                    $regionChangePreviousLog = $previousLog;
+                    $isRegionChangeForUi = true;
+                    $regionChangePreviousLogForUi = $previousLog;
+                    
+                    $distance = calculateDistance($previousLog['lat'], $previousLog['lon'], $currentLog['lat'], $currentLog['lon']);
+                    if ($distance > (float)$_ENV['REGION_CHANGE_IGNORE_KM']) {
+                        $incidentsForEmail[] = [
+                            'type' => 'region_change',
+                            'current_log' => $currentLog,
+                            'previous_log' => $previousLog,
+                        ];
+                    }
                 }
 
                 if ($previousLog['ip_address'] !== $currentLog['ip_address'] && !empty($previousLog['lat']) && !empty($currentLog['lat'])) {
@@ -103,7 +109,6 @@ try {
         $userHistories[$userId][] = $currentLog;
 
         $isImpossibleTravel = ($maxSpeedKph > (float)$_ENV['IMPOSSIBLE_TRAVEL_SPEED_THRESHOLD']);
-        $isRegionChange = $regionChangeDetected;
         $previousLogId = null;
         
         if ($isImpossibleTravel) {
@@ -119,16 +124,11 @@ try {
             }
         } 
         
-        if ($isRegionChange) {
-            $previousLogId = $regionChangePreviousLog['id'];
-            $incidentsForEmail[] = [
-                'type' => 'region_change',
-                'current_log' => $currentLog,
-                'previous_log' => $regionChangePreviousLog,
-            ];
+        if ($isRegionChangeForUi && !$isImpossibleTravel) {
+            $previousLogId = $regionChangePreviousLogForUi['id'];
         }
         
-        if ($isImpossibleTravel || $isRegionChange) {
+        if ($isImpossibleTravel || $isRegionChangeForUi) {
             echo "  [ALERT] Anomaly found for Log ID #" . $currentLog['id'] . ". Updating record.\n";
             $updateStmt = $db->prepare(
                 "UPDATE login_logs SET 
@@ -140,7 +140,7 @@ try {
             );
             $updateStmt->execute([
                 'is_impossible_travel' => (int)$isImpossibleTravel,
-                'is_region_change' => (int)$isRegionChange,
+                'is_region_change' => (int)$isRegionChangeForUi,
                 'travel_speed_kph' => $isImpossibleTravel ? $maxSpeedKph : null,
                 'previous_log_id' => $previousLogId,
                 'id' => $currentLog['id']
@@ -163,10 +163,10 @@ try {
     die("An application error occurred: " . $e->getMessage() . "\n");
 }
 
-/**
- * Helper function for distance calculation
- */
-function calculateDistance(float $lat1, float $lon1, float $lat2, float $lon2): float {
+function calculateDistance(?float $lat1, ?float $lon1, ?float $lat2, ?float $lon2): float {
+    if ($lat1 === null || $lon1 === null || $lat2 === null || $lon2 === null) {
+        return 0;
+    }
     $earthRadiusKm = 6371;
     $dLat = deg2rad($lat2 - $lat1);
     $dLon = deg2rad($lon2 - $lon1);
