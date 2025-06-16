@@ -22,6 +22,8 @@ class LogProcessor {
         $signInLogs = $this->graphHelper->getSignInLogs();
         echo "Found " . count($signInLogs) . " logs to process.\n";
 
+        $impossibleTravelIncidents = [];
+
         $signInLogs = array_reverse($signInLogs);
 
         /** @var SignIn $log */
@@ -64,7 +66,6 @@ class LogProcessor {
                 'previous_log_id' => null
             ];
             
-            // --- Compare against all logins in the last 24 hours ---
             $previousLogins = $this->getPreviousLoginsInLast24Hours($log->getUserId(), $currentLogData['login_time']);
 
             if (!empty($previousLogins)) {
@@ -91,7 +92,6 @@ class LogProcessor {
                     }
                 }
 
-                // Check if the fastest travel speed found exceeds the threshold
                 if ($maxSpeedKph > (float)$_ENV['IMPOSSIBLE_TRAVEL_SPEED_THRESHOLD']) {
                     $currentLogData['is_impossible_travel'] = true;
                     $currentLogData['travel_speed_kph'] = $maxSpeedKph;
@@ -99,16 +99,24 @@ class LogProcessor {
                     
                     echo "IMPOSSIBLE TRAVEL DETECTED for " . $currentLogData['user_principal_name'] . " at " . round($maxSpeedKph) . " km/h\n";
 
-                    // Send an email alert ONLY if both the current login and the fastest-travel previous login were successful.
+                    // --- NEW: Add incident to the array instead of emailing immediately ---
                     $previousLoginWasSuccessful = ($fastestPreviousLog['status'] === 'Success');
                     if ($loginWasSuccessful && $previousLoginWasSuccessful) {
-                        Mailer::sendImpossibleTravelAlert($currentLogData, $fastestPreviousLog, $maxSpeedKph);
+                        $impossibleTravelIncidents[] = [
+                            'current_log' => $currentLogData,
+                            'previous_log' => $fastestPreviousLog,
+                            'speed' => $maxSpeedKph,
+                        ];
                     }
                 }
             }
-            // --- END LOGIC ---
 
             $this->saveLoginLog($currentLogData);
+        }
+        
+        if (!empty($impossibleTravelIncidents)) {
+            echo "Sending consolidated email for " . count($impossibleTravelIncidents) . " incidents.\n";
+            Mailer::sendConsolidatedAlert($impossibleTravelIncidents);
         }
 
         echo "Log processing complete.\n";
@@ -121,9 +129,6 @@ class LogProcessor {
         return $stmt->fetchColumn() !== false;
     }
     
-    /**
-     * Gets all previous logins for a user within the last 24 hours before a given time.
-     */
     private function getPreviousLoginsInLast24Hours(string $userId, string $currentLoginTime): array {
         $stmt = $this->db->prepare(
             "SELECT * FROM login_logs 
