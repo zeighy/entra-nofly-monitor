@@ -156,4 +156,3 @@ All configuration is handled in the `secrets.php` file.
 -   **Headless Operation**: The application can run perfectly well without the Web UI. If you do not need it, you can block all web access to the `/nofly-monitor` directory in your server configuration for maximum security.
 
 ---
-
