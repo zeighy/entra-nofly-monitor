@@ -1,11 +1,18 @@
 <?php
+// --- Force PHP to display all errors on the screen for debugging ---
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+// --- End Debugging ---
+
+
 define('BASE_PATH', '/nofly-watch/public/index.php');
 
 // --- Session Handling ---
 $session_path = __DIR__ . '/../sessions';
 if (!is_dir($session_path)) {
     if (!@mkdir($session_path, 0777, true) && !is_dir($session_path)) {
-         die("FATAL ERROR: Could not create session directory at '$session_path'. Please verify permissions.");
+         die("FATAL ERROR: Could not create session directory at '$session_path'. Please verify that the parent directory ('/nofly-watch/') is writable by the web server user ('nobody').");
     }
 }
 session_save_path($session_path);
@@ -37,6 +44,7 @@ $errorMessage = '';
 $infoMessage = '';
 
 $alertsStmt = null;
+$regionChangeStmt = null; // New statement for region changes
 $logsStmt = null;
 
 if (isset($_SESSION['info_message'])) {
@@ -44,7 +52,6 @@ if (isset($_SESSION['info_message'])) {
     unset($_SESSION['info_message']); 
 }
 
-// --- Login and Action Logic ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     if ($auth->login($_POST['username'], $_POST['password'])) {
         header('Location: ' . BASE_PATH);
@@ -111,6 +118,7 @@ if ($auth->check()) {
     }
     
     $alertsStmt = $db->query("SELECT * FROM login_logs WHERE is_impossible_travel = 1 ORDER BY login_time DESC LIMIT 100");
+    $regionChangeStmt = $db->query("SELECT * FROM login_logs WHERE is_region_change = 1 ORDER BY login_time DESC LIMIT 100");
     $logsStmt = $db->query("SELECT * FROM login_logs ORDER BY login_time DESC LIMIT 200");
 }
 ?>
@@ -176,6 +184,42 @@ if ($auth->check()) {
                     </div>
                 </section>
 
+                <section class="region-changes">
+                    <h2><span class="icon">&#127758;</span> Region Change Alerts</h2>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead><tr><th>User</th><th>Status</th><th>Travel Details</th></tr></thead>
+                            <tbody>
+                                <?php if($regionChangeStmt): while ($row = $regionChangeStmt->fetch()): ?>
+                                <?php
+                                    $prevStmt = $db->prepare("SELECT * FROM login_logs WHERE id = ?");
+                                    $prevStmt->execute([$row['previous_log_id']]);
+                                    $prevRow = $prevStmt->fetch();
+                                ?>
+                                <tr class="region-change-row">
+                                    <td><?= htmlspecialchars($row['user_principal_name']) ?></td>
+                                    <td class="<?= str_starts_with($row['status'], 'Failure') ? 'failure-text' : '' ?>"><?= htmlspecialchars($row['status']) ?></td>
+                                    <td class="travel-details">
+                                        <?php if ($prevRow): ?>
+                                        <div>
+                                            <strong>From:</strong> <?= htmlspecialchars($prevRow['region'] ?? 'N/A') ?> (<?= htmlspecialchars($prevRow['country'] ?? 'N/A') ?>)<br>
+                                            <small>(<?= htmlspecialchars($prevRow['ip_address']) ?> at <?= htmlspecialchars($prevRow['login_time']) ?>)</small>
+                                        </div>
+                                        <?php endif; ?>
+                                        <div>
+                                            <strong>To:</strong> <?= htmlspecialchars($row['region'] ?? 'N/A') ?> (<?= htmlspecialchars($row['country'] ?? 'N/A') ?>)<br>
+                                            <small>(<?= htmlspecialchars($row['ip_address']) ?> at <?= htmlspecialchars($row['login_time']) ?>)</small>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php endwhile; if($regionChangeStmt && $regionChangeStmt->rowCount() === 0): ?>
+                                    <tr><td colspan="3">No region change alerts found.</td></tr>
+                                <?php endif; endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
                 <section class="logs">
                     <h2><span class="icon">&#128195;</span> All Recent Login Logs</h2>
                     <div class="table-wrapper">
@@ -198,7 +242,7 @@ if ($auth->check()) {
             </main>
         <?php else: ?>
             <div class="login-box">
-                <form method="POST" action="<?= BASE_PATH ?>">
+                <form method="POST" action="">
                     <h2>Admin Login</h2>
                     <?php if ($errorMessage): ?>
                         <p class="error-message"><?= $errorMessage ?></p>
