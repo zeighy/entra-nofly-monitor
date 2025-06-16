@@ -27,7 +27,7 @@ The application operates in two main parts: a background processor and a web UI.
 ### 1. The Background Processor (`run_background_task.php`)
 
 This script is designed to be run by a cron job at regular intervals (e.g., every 10-15 minutes). On each run, it performs the following steps:
-1.  **Fetches Logs**: Connects to the Microsoft Graph API and retrieves the latest 150 sign-in logs.
+1.  **Fetches Logs**: Connects to the Microsoft Graph API and retrieves the latest 500 sign-in logs.
 2.  **Processes Each Log**: For each new sign-in log, it:
     * Retrieves the IP address geolocation (using a local cache to minimize external lookups).
     * Compares the current login against all other logins for that same user in the last 24 hours.
