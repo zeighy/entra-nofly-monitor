@@ -22,6 +22,11 @@ return [
     // Set maximum travel speed between login locations in km/h
     'IMPOSSIBLE_TRAVEL_SPEED_THRESHOLD' => 800,
 
+    // Will not flag a region change if the distance is less than this value (in km).
+    // This helps prevent false positives for users near a state/province border.
+    // 80km is default as it iss roughly 1 hour communute for in-city driving.
+    'REGION_CHANGE_IGNORE_KM' => 80,
+
     // --- Email Alerting Configuration ---
     'SMTP_HOST' => 'your_smtp_server.com',
     'SMTP_PORT' => 587,

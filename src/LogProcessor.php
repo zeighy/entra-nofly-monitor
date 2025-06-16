@@ -71,15 +71,16 @@ class LogProcessor {
             $previousLogins = $this->getPreviousLoginsInLast24Hours($log->getUserId(), $currentLogData['login_time']);
 
             $isImpossibleTravel = false;
-            $isRegionChange = false;
-
+            $isRegionChangeForUi = false;
+            
             if (!empty($previousLogins)) {
                 $maxSpeedKph = 0;
                 $fastestPreviousLog = null;
-                $regionChangePreviousLog = null;
+                $regionChangePreviousLogForUi = null;
 
                 foreach ($previousLogins as $previousLog) {
-                    if (!$isRegionChange &&
+                    // --- Region Change Detection ---
+                    if (!$isRegionChangeForUi &&
                         $previousLog['ip_address'] !== $currentLogData['ip_address'] &&
                         !empty($previousLog['region']) &&
                         !empty($currentLogData['region']) &&
@@ -88,10 +89,21 @@ class LogProcessor {
                         $previousLog['status'] === 'Success'
                        )
                     {
-                        $isRegionChange = true;
-                        $regionChangePreviousLog = $previousLog;
+                        $isRegionChangeForUi = true;
+                        $regionChangePreviousLogForUi = $previousLog;
+                        
+                        // Check if the distance warrants an email alert, otherwise log for display in web ui
+                        $distance = $this->calculateDistance($previousLog['lat'], $previousLog['lon'], $currentLogData['lat'], $currentLogData['lon']);
+                        if ($distance > (float)$_ENV['REGION_CHANGE_IGNORE_KM']) {
+                            $incidentsForEmail[] = [
+                                'type' => 'region_change',
+                                'current_log' => $currentLogData,
+                                'previous_log' => $previousLog,
+                            ];
+                        }
                     }
 
+                    // --- Impossible Travel Detection ---
                     if ($previousLog['ip_address'] !== $currentLogData['ip_address'] && !empty($previousLog['lat']) && !empty($currentLogData['lat'])) {
                         $distance = $this->calculateDistance($previousLog['lat'], $previousLog['lon'], $currentLogData['lat'], $currentLogData['lon']);
                         $timeDiffSeconds = $loginTime->getTimestamp() - (new DateTime($previousLog['login_time']))->getTimestamp();
@@ -109,18 +121,21 @@ class LogProcessor {
                 $isImpossibleTravel = ($maxSpeedKph > (float)$_ENV['IMPOSSIBLE_TRAVEL_SPEED_THRESHOLD']);
                 
                 $currentLogData['is_impossible_travel'] = $isImpossibleTravel;
-                $currentLogData['is_region_change'] = $isRegionChange;
+                $currentLogData['is_region_change'] = $isRegionChangeForUi;
+
                 if ($isImpossibleTravel) {
                     $currentLogData['travel_speed_kph'] = $maxSpeedKph;
                     $currentLogData['previous_log_id'] = $fastestPreviousLog['id']; 
-                } elseif ($isRegionChange) {
-                    $currentLogData['previous_log_id'] = $regionChangePreviousLog['id']; 
+                } elseif ($isRegionChangeForUi) {
+                    $currentLogData['previous_log_id'] = $regionChangePreviousLogForUi['id']; 
                 }
             }
 
+            // Save the log first to get its database ID
             $newLogId = $this->saveLoginLog($currentLogData);
             $currentLogData['id'] = $newLogId; 
 
+            // Now, check if impossible travel should be added to the email digest, otherwise log for display in web ui
             if ($isImpossibleTravel) {
                 $previousLoginWasSuccessful = ($fastestPreviousLog['status'] === 'Success');
                 if ($loginWasSuccessful && $previousLoginWasSuccessful) {
@@ -133,16 +148,12 @@ class LogProcessor {
                 }
                 echo "IMPOSSIBLE TRAVEL DETECTED for " . $currentLogData['user_principal_name'] . "\n";
             }
-            if ($isRegionChange) {
-                 $incidentsForEmail[] = [
-                    'type' => 'region_change',
-                    'current_log' => $currentLogData,
-                    'previous_log' => $regionChangePreviousLog,
-                ];
+            if ($isRegionChangeForUi) {
                 echo "REGION CHANGE DETECTED for " . $currentLogData['user_principal_name'] . "\n";
             }
         }
         
+        // Send the single consolidated email at the end
         if (!empty($incidentsForEmail)) {
             echo "Sending consolidated email for " . count($incidentsForEmail) . " incidents.\n";
             Mailer::sendConsolidatedAlert($incidentsForEmail, $this->db);
@@ -183,7 +194,10 @@ class LogProcessor {
         return (int)$this->db->lastInsertId();
     }
     
-    private function calculateDistance(float $lat1, float $lon1, float $lat2, float $lon2): float {
+    private function calculateDistance(?float $lat1, ?float $lon1, ?float $lat2, ?float $lon2): float {
+        if ($lat1 === null || $lon1 === null || $lat2 === null || $lon2 === null) {
+            return 0;
+        }
         $earthRadiusKm = 6371;
         $dLat = deg2rad($lat2 - $lat1);
         $dLon = deg2rad($lon2 - $lon1);
