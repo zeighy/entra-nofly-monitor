@@ -81,17 +81,65 @@ Register an application in your Microsoft Entra ID tenant to grant this script p
 10. Click the **"Grant admin consent for [Your Tenant]"** button.
 
 ### 4. Application Configuration
-- Rename `generic_secrets.php` to `secrets.php`.
-- Open `secrets.php` and fill in all required values (database credentials, Entra app credentials, SMTP details).
+- Rename the `generic_secrets.php` file to `secrets.php`.
+- Open `secrets.php` and fill in all the required values:
+  - Your database credentials.
+  - The three Microsoft Entra values you just copied (Tenant ID, Client ID, and Client Secret).
+  - Your SMTP server details for sending email alerts.
+  - Update the value for `IMPOSSIBLE_TRAVEL_SPEED_THRESHOLD` if you want a different sensitivity
 
-### 5. Cron Job Setup
-- Set up a cron job on your host server to run the background task.
+### 5. Web Server Configuration (Nginx Example)
+For security, your web server's document root should point to the project's main directory, and access to sensitive files should be blocked. A front controller pattern is used, where all requests are routed through `/nofly-monitor/public/index.php`.
+
+Here is a sample Nginx configuration block:
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    root /var/www/html/; # Path to the directory containing 'nofly-monitor'
+    index index.php;
+
+    location /nofly-monitor {
+        try_files $uri $uri/ /nofly-monitor/public/index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        try_files $uri =404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass unix:/var/run/php-fpm.sock; # Or your PHP-FPM socket/address
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # Deny direct browser access to sensitive files
+    location ~ /nofly-monitor/(src|vendor|sessions|logs-6Tnx-HLFW)/ { deny all; }
+    location = /nofly-monitor/(secrets.php|run_background_task.php|reprocess_logs.php|fix_regions.php|composer.json|composer.lock|composer.phar) { deny all; }
+}
+```
+
+### 6. Cron Job Setup
+- Set up a cron job on your host server to run the background task automatically. Running it every 10-15 minutes is a good starting point.
 - Open your crontab for editing: `crontab -e`
-- Add the following lines, ensuring you use the correct full paths for your server.
+- Add the following line, making sure to use the correct full paths for your server.
 
 ```bash
-# Run the Entra log sync every 10 minutes
-*/10 * * * * /path/to/php /path/to/your/project/nofly-watch/run_background_task.php >> /path/to/your/log/folder/cron_$(date +\%Y\%m\%d-\%H\%M\%S).log 2>&1
+# Run the Entra log sync every 10 minutes and log output to a timestamped file
+*/10 * * * * /usr/bin/php /path/to/your/project/nofly-monitor/run_background_task.php >> /var/log/nofly-monitor/cron_$(date +\%Y\%m\%d-\%H\%M\%S).log 2>&1
 
 # Prune the cron log files older than 14 days, runs once a day at midnight
-0 0 * * * find /path/to/your/log/folder/ -type f -name '*.log' -mtime +14 -delete
+0 0 * * * find /var/log/nofly-monitor/ -type f -name '*.log' -mtime +14 -delete
+```
+
+---
+
+## Configuration Options
+
+All configuration is handled in the `secrets.php` file.
+
+-   `IMPOSSIBLE_TRAVEL_SPEED_THRESHOLD`: The maximum speed in km/h that a user can "travel" between logins before an alert is generated. A value of `800` is a good starting point, as it's difficult to achieve this speed with commercial air travel when factoring in time to get to/from airports.
+-   `ADMIN_ALERT_EMAIL`: The primary email address that receives the alert digests.
+-   `MAILER_CC_RECIPIENTS`: A comma-separated list of additional email addresses to CC on the alerts.
+
+---
