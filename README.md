@@ -143,3 +143,9 @@ All configuration is handled in the `secrets.php` file.
 -   `MAILER_CC_RECIPIENTS`: A comma-separated list of additional email addresses to CC on the alerts.
 
 ---
+
+## Security Considerations
+
+-   **File Permissions**: Ensure that your web server user (e.g., `www-data`, `nobody`) has write permissions for the `/sessions` directory. All other application files should be read-only for the web server user.
+-   **Web UI Access**: The web UI is protected by the local application login. For enhanced security, consider placing it behind an IP whitelist, a VPN, or a Zero Trust solution like Cloudflare Access.
+-   **Headless Operation**: The application can run perfectly well without the Web UI. If you do not need it, you can block all web access to the `/nofly-monitor` directory in your server configuration for maximum security.
