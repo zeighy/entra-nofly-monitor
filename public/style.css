@@ -4,7 +4,7 @@
     --secondary-color: #333;
     --accent-color: #d9534f;
     --warning-bg: #fffbe6;
-    --region-change-bg: #e6f7ff; /* Light blue for region changes */
+    --region-change-bg: #e6f7ff; 
     --card-bg: #ffffff;
     --border-color: #e1e1e1;
     --text-color: #333;
@@ -80,7 +80,7 @@ section.alerts h2 .icon {
 }
 
 section.region-changes h2 .icon {
-    color: #1890ff; /* Blue for region change icon */
+    color: #1890ff; 
 }
 
 .table-wrapper {
@@ -135,9 +135,15 @@ tbody tr:hover {
     margin-bottom: 0;
 }
 
-.travel-details small {
+.travel-details small, .email-status small {
     color: var(--text-light);
     font-size: 0.8em;
+    font-weight: normal;
+}
+
+.email-status {
+    text-align: center;
+    font-size: 1.2em;
 }
 
 .login-box {
