@@ -33,8 +33,8 @@ class LogProcessor {
                 continue;
             }
 
-            $logId = $log->getId();
-            if ($this->logExists($logId)) {
+            $logIdFromEntra = $log->getId();
+            if ($this->logExists($logIdFromEntra)) {
                 continue;
             }
 
@@ -51,53 +51,48 @@ class LogProcessor {
             $loginStatusMessage = $loginWasSuccessful ? 'Success' : ('Failure: ' . ($status ? $status->getFailureReason() : 'Unknown'));
 
             $currentLogData = [
-                'entra_log_id' => $logId,
+                'entra_log_id' => $logIdFromEntra,
                 'user_id' => $log->getUserId(),
                 'user_principal_name' => $userPrincipalName,
                 'ip_address' => $ipAddress,
                 'login_time' => $loginTime->format('Y-m-d H:i:s'),
                 'status' => $loginStatusMessage,
                 'country' => $geoInfo['country'] ?? null,
+                'region' => $geoInfo['regionName'] ?? $geoInfo['region'] ?? null,
                 'city' => $geoInfo['city'] ?? null,
-                'region' => $geoInfo['region'] ?? null, // Store region
                 'lat' => $geoInfo['lat'] ?? null,
                 'lon' => $geoInfo['lon'] ?? null,
                 'is_impossible_travel' => false,
-                'is_region_change' => false, // New field
+                'is_region_change' => false,
                 'travel_speed_kph' => null,
                 'previous_log_id' => null
             ];
             
             $previousLogins = $this->getPreviousLoginsInLast24Hours($log->getUserId(), $currentLogData['login_time']);
 
+            $isImpossibleTravel = false;
+            $isRegionChange = false;
+
             if (!empty($previousLogins)) {
                 $maxSpeedKph = 0;
                 $fastestPreviousLog = null;
-                $regionChangeDetected = false;
                 $regionChangePreviousLog = null;
 
                 foreach ($previousLogins as $previousLog) {
-                    // Check if the region is different and not null/empty
-                    if (!$regionChangeDetected && !empty($previousLog['region']) && !empty($currentLogData['region']) && $previousLog['region'] !== $currentLogData['region']) {
-                        $regionChangeDetected = true;
+                    if (!$isRegionChange &&
+                        $previousLog['ip_address'] !== $currentLogData['ip_address'] &&
+                        !empty($previousLog['region']) &&
+                        !empty($currentLogData['region']) &&
+                        $previousLog['region'] !== $currentLogData['region'] &&
+                        $loginWasSuccessful && 
+                        $previousLog['status'] === 'Success'
+                       )
+                    {
+                        $isRegionChange = true;
                         $regionChangePreviousLog = $previousLog;
-                        $currentLogData['is_region_change'] = true;
-                        // We link to the specific log that triggered the region change
-                        $currentLogData['previous_log_id'] = $previousLog['id']; 
-                        echo "REGION CHANGE DETECTED for " . $currentLogData['user_principal_name'] . "\n";
-                        
-                        // Add to email digest if the current login was successful
-                        if ($loginWasSuccessful) {
-                             $incidentsForEmail[] = [
-                                'type' => 'region_change',
-                                'current_log' => $currentLogData,
-                                'previous_log' => $regionChangePreviousLog,
-                            ];
-                        }
                     }
 
-                    // --- Impossible Travel Detection ---
-                    if ($previousLog['ip_address'] !== $currentLogData['ip_address'] && $previousLog['lat'] && $currentLogData['lat']) {
+                    if ($previousLog['ip_address'] !== $currentLogData['ip_address'] && !empty($previousLog['lat']) && !empty($currentLogData['lat'])) {
                         $distance = $this->calculateDistance($previousLog['lat'], $previousLog['lon'], $currentLogData['lat'], $currentLogData['lon']);
                         $timeDiffSeconds = $loginTime->getTimestamp() - (new DateTime($previousLog['login_time']))->getTimestamp();
                         $timeDiffHours = $timeDiffSeconds > 0 ? $timeDiffSeconds / 3600 : 0;
@@ -111,33 +106,46 @@ class LogProcessor {
                         }
                     }
                 }
-
-                if ($maxSpeedKph > (float)$_ENV['IMPOSSIBLE_TRAVEL_SPEED_THRESHOLD']) {
-                    $currentLogData['is_impossible_travel'] = true;
+                $isImpossibleTravel = ($maxSpeedKph > (float)$_ENV['IMPOSSIBLE_TRAVEL_SPEED_THRESHOLD']);
+                
+                $currentLogData['is_impossible_travel'] = $isImpossibleTravel;
+                $currentLogData['is_region_change'] = $isRegionChange;
+                if ($isImpossibleTravel) {
                     $currentLogData['travel_speed_kph'] = $maxSpeedKph;
-                    // Overwrite previous_log_id if impossible travel is more significant
                     $currentLogData['previous_log_id'] = $fastestPreviousLog['id']; 
-                    
-                    echo "IMPOSSIBLE TRAVEL DETECTED for " . $currentLogData['user_principal_name'] . " at " . round($maxSpeedKph) . " km/h\n";
-
-                    $previousLoginWasSuccessful = ($fastestPreviousLog['status'] === 'Success');
-                    if ($loginWasSuccessful && $previousLoginWasSuccessful) {
-                        $incidentsForEmail[] = [
-                            'type' => 'impossible_travel',
-                            'current_log' => $currentLogData,
-                            'previous_log' => $fastestPreviousLog,
-                            'speed' => $maxSpeedKph,
-                        ];
-                    }
+                } elseif ($isRegionChange) {
+                    $currentLogData['previous_log_id'] = $regionChangePreviousLog['id']; 
                 }
             }
 
-            $this->saveLoginLog($currentLogData);
+            $newLogId = $this->saveLoginLog($currentLogData);
+            $currentLogData['id'] = $newLogId; 
+
+            if ($isImpossibleTravel) {
+                $previousLoginWasSuccessful = ($fastestPreviousLog['status'] === 'Success');
+                if ($loginWasSuccessful && $previousLoginWasSuccessful) {
+                    $incidentsForEmail[] = [
+                        'type' => 'impossible_travel',
+                        'current_log' => $currentLogData,
+                        'previous_log' => $fastestPreviousLog,
+                        'speed' => $maxSpeedKph,
+                    ];
+                }
+                echo "IMPOSSIBLE TRAVEL DETECTED for " . $currentLogData['user_principal_name'] . "\n";
+            }
+            if ($isRegionChange) {
+                 $incidentsForEmail[] = [
+                    'type' => 'region_change',
+                    'current_log' => $currentLogData,
+                    'previous_log' => $regionChangePreviousLog,
+                ];
+                echo "REGION CHANGE DETECTED for " . $currentLogData['user_principal_name'] . "\n";
+            }
         }
         
         if (!empty($incidentsForEmail)) {
             echo "Sending consolidated email for " . count($incidentsForEmail) . " incidents.\n";
-            Mailer::sendConsolidatedAlert($incidentsForEmail);
+            Mailer::sendConsolidatedAlert($incidentsForEmail, $this->db);
         }
 
         echo "Log processing complete.\n";
@@ -163,7 +171,7 @@ class LogProcessor {
         return $stmt->fetchAll() ?: [];
     }
     
-    private function saveLoginLog(array $data): void {
+    private function saveLoginLog(array $data): int {
         $data['is_impossible_travel'] = (int)($data['is_impossible_travel'] ?? false);
         $data['is_region_change'] = (int)($data['is_region_change'] ?? false);
         
@@ -172,6 +180,7 @@ class LogProcessor {
         
         $stmt = $this->db->prepare($sql);
         $stmt->execute($data);
+        return (int)$this->db->lastInsertId();
     }
     
     private function calculateDistance(float $lat1, float $lon1, float $lat2, float $lon2): float {

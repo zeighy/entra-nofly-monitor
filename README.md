@@ -1,4 +1,4 @@
-# Entra Impossible Travel Monitor
+# Entra Impossible Travel & Anomaly Monitor
 
 ![Security Shield](https://img.shields.io/badge/Security-Monitoring-blue)
 ![PHP](https://img.shields.io/badge/PHP-8.x-purple)
@@ -10,12 +10,12 @@ A standalone PHP application to monitor Microsoft Entra (Azure AD) sign-in logs 
 
 ## Features
 
--   **Impossible Travel Detection**: Calculates the speed of travel between login locations and flags any that exceed a configurable speed threshold.
--   **Region Change Alerts**: Detects when a user logs in from a different state or province within a 24-hour window.
--   **Consolidated Email Alerts**: Sends a single digest email per run, summarizing all detected incidents to prevent inbox spam.
--   **Intelligent Alerting**: Email alerts are only sent for incidents involving successful logins, reducing noise from failed attempts.
--   **Web UI for Review**: A secure, login-protected dashboard to review all impossible travel alerts, region change alerts, and a history of all recent sign-ins.
--   **Automated Background Processing**: A simple cron job runs the monitoring script at a configurable interval.
+-   **Impossible Travel Detection**: Calculates the speed of travel between login locations. Flags events that exceed a configurable speed threshold for UI review, but only sends an email alert if both compared logins were successful.
+-   **Region Change Alerts**: Detects when a user logs in from a different state or province within a 24-hour window. An alert is only generated if both logins being compared were successful.
+-   **Consolidated Email Alerts**: Sends a single digest email per run, summarizing all detected incidents with a breakdown by type and user count to prevent inbox spam.
+-   **Intelligent Alerting**: Email alerts for critical incidents are only sent when there is a high confidence of anomalous activity (e.g., successful logins).
+-   **Web UI for Review**: A secure, login-protected dashboard to review all impossible travel alerts, region change alerts, and a history of all recent sign-ins. It also indicates which alerts triggered an email notification.
+-   **Automated & Manual Processing**: A cron job runs the monitoring script at a configurable interval, and a button in the UI allows for immediate, on-demand syncs.
 -   **Secure by Design**: Uses a `secrets.php` file (not committed to version control) to store all credentials and has a secure-by-default file structure.
 
 ---
@@ -31,18 +31,17 @@ This script is designed to be run by a cron job at regular intervals (e.g., ever
 2.  **Processes Each Log**: For each new sign-in log, it:
     * Retrieves the IP address geolocation (using a local cache to minimize external lookups).
     * Compares the current login against all other logins for that same user in the last 24 hours.
-    * **Flags Impossible Travel**: If the calculated speed between the current login and any previous login exceeds the `IMPOSSIBLE_TRAVEL_SPEED_THRESHOLD`, it flags the event.
-    * **Flags Region Change**: If the state/province of the current login is different from any previous login in the last 24 hours, it flags the event.
-3.  **Consolidates Alerts**: It collects all incidents that should trigger an email (successful impossible travel logins and successful region changes) into a single list.
-4.  **Sends Email**: If any incidents were found, it sends one single, consolidated email digest to the administrator and any CC recipients.
-5.  **Prunes Old Data**: Automatically deletes logs from the database that are older than 180 days to conserve space.
+    * **Flags Impossible Travel**: Flags any event exceeding the speed threshold for UI review. An incident is added to the email digest only if both the current and compared logins were successful.
+    * **Flags Region Change**: Flags any event where a user logs in from a different state/province. An alert is only generated for the UI and email if both the current and compared logins were successful.
+3.  **Consolidates & Sends Email**: It collects all qualifying incidents, builds a summary digest with statistics, and sends a single email to all configured recipients. For each alert sent, a record is created in the `email_alerts` table.
+4.  **Prunes Old Data**: Automatically deletes logs from the `login_logs` table that are older than 180 days.
 
 ### 2. The Web UI (`public/index.php`)
 
 The web UI provides a convenient way to visualize the data collected by the background processor.
 -   It is protected by a local username and password stored in the `admins` database table.
--   It displays separate tables for high-priority **Impossible Travel Alerts**, medium-priority **Region Change Alerts**, and a comprehensive log of all recent sign-ins.
--   It includes buttons to manually trigger a background sync and to export alert data to CSV files for reporting.
+-   It displays separate tables for **Impossible Travel Alerts** and **Region Change Alerts**, each with a new "Email Sent" column indicating if a notification was generated and when.
+-   It includes buttons to manually trigger a background sync and to export various logs to CSV files.
 
 ---
 
@@ -59,31 +58,27 @@ The web UI provides a convenient way to visualize the data collected by the back
 ## Setup Guide
 
 ### 1. Initial Setup
-- Run `composer install` in the project's root directory to download the required PHP libraries.
-- Create an empty directory named `sessions` in the project root (`/nofly-monitor/sessions`). The application will use this to store session data.
+- Run `composer install` in the project's root directory.
+- Create two empty directories in the project root: `sessions` and a log folder (e.g., `logs-6Tnx-HLFW`). Ensure the web server user has write permissions to both.
 
 ### 2. Database Setup
-- Connect to your MySQL/MariaDB server.
-- Create a new database for the application.
-- Run the SQL commands in the `dbsetup.txt` file to create all the necessary tables (`admins`, `login_logs`, `ip_geolocation_cache`).
-- **Security Note**: The setup script creates a default user `admin` with the password `password`. It is highly recommended that you change this password (its in Bcrypt hash) and use a different username from `admin`.
+- Connect to your MySQL/MariaDB server and create a new database.
+- Run the SQL commands in the `dbsetup.txt` file to create all the necessary tables.
+- **Security Note**: The setup script creates a default user `admin` with the password `password`. Please change this immediately.
 
 ### 3. Microsoft Entra App Registration
-You need to register an application in your Microsoft Entra ID tenant to grant this script permission to read the sign-in logs.
+Register an application in your Microsoft Entra ID tenant to grant this script permission to read the sign-in logs.
 
- 1. Navigate to the **Microsoft Entra admin center**.
- 2. Go to **Identity > Applications > App registrations** and click **+ New registration**.
- 3. Give your app a descriptive name (e.g., `Microsoft 365 Login Monitor`).
- 4. For "Supported account types," select "Accounts in this organizational directory only."
- 5. Click **Register**.
- 6. On the app's "Overview" page, copy the **Application (client) ID** and the **Directory (tenant) ID**.
- 7. Go to the **Certificates & secrets** tab, click **+ New client secret**, give it a description, and set an expiry. **Immediately copy the secret's "Value"**. You will not be able to see it again after you leave the page.
- 8. Go to the **API permissions** tab, click **+ Add a permission**, and select **Microsoft Graph**.
- 9. Choose **Application permissions**.
-10. Search for and add the following permissions:
-    * `AuditLog.Read.All`
-    * `User.Read.All`
-11. Click the **"Grant admin consent for [Your Tenant]"** button. The status for the permissions should change to "Granted".
+1.  Navigate to the **Microsoft Entra admin center**.
+2.  Go to **Identity > Applications > App registrations** and click **+ New registration**.
+3.  Give the app a descriptive name (e.g., `Impossible Travel Monitor`).
+4.  Select "Accounts in this organizational directory only."
+5.  Click **Register**.
+6.  Copy the **Application (client) ID** and the **Directory (tenant) ID** from the "Overview" page.
+7.  Go to **Certificates & secrets**, click **+ New client secret**, and **immediately copy the secret's "Value"**.
+8.  Go to **API permissions**, click **+ Add a permission**, select **Microsoft Graph**, and choose **Application permissions**.
+9.  Search for and add `AuditLog.Read.All` and `User.Read.All`.
+10. Click the **"Grant admin consent for [Your Tenant]"** button.
 
 ### 4. Application Configuration
 - Rename the `generic_secrets.php` file to `secrets.php`.
@@ -102,11 +97,11 @@ server {
     listen 80;
     server_name your-domain.com;
 
-    root /var/www/html; # Path to the directory containing 'nofly-monitor'
+    root /var/www/html/; # Path to the directory containing 'nofly-monitor'
     index index.php;
 
     location /nofly-monitor {
-        try_files $uri $uri/ /nofly-monitor/index.php?$query_string;
+        try_files $uri $uri/ /nofly-monitor/public/index.php?$query_string;
     }
 
     location ~ \.php$ {
@@ -119,8 +114,8 @@ server {
     }
 
     # Deny direct browser access to sensitive files
-    location ~ /nofly-monitor/(src|vendor|sessions)/ { deny all; }
-    location = /nofly-monitor/secrets.php { deny all; }
+    location ~ /nofly-monitor/(src|vendor|sessions|logs-6Tnx-HLFW)/ { deny all; }
+    location = /nofly-monitor/(secrets.php|run_background_task.php|reprocess_logs.php|fix_regions.php|composer.json|composer.lock|composer.phar) { deny all; }
 }
 ```
 
@@ -154,5 +149,3 @@ All configuration is handled in the `secrets.php` file.
 -   **File Permissions**: Ensure that your web server user (e.g., `www-data`, `nobody`) has write permissions for the `/sessions` directory. All other application files should be read-only for the web server user.
 -   **Web UI Access**: The web UI is protected by the local application login. For enhanced security, consider placing it behind an IP whitelist, a VPN, or a Zero Trust solution like Cloudflare Access.
 -   **Headless Operation**: The application can run perfectly well without the Web UI. If you do not need it, you can block all web access to the `/nofly-monitor` directory in your server configuration for maximum security.
-
----

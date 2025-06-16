@@ -5,7 +5,7 @@ define('BASE_PATH', '/nofly-monitor/public/index.php');
 $session_path = __DIR__ . '/../sessions';
 if (!is_dir($session_path)) {
     if (!@mkdir($session_path, 0777, true) && !is_dir($session_path)) {
-         die("FATAL ERROR: Could not create session directory at '$session_path'. Please verify that the parent directory is writable by the web server user ('nobody').");
+         die("FATAL ERROR: Could not create session directory at '$session_path'. Please verify permissions.");
     }
 }
 session_save_path($session_path);
@@ -37,8 +37,8 @@ $errorMessage = '';
 $infoMessage = '';
 
 $alertsStmt = null;
-$regionChangeStmt = null; // New statement for region changes
 $logsStmt = null;
+$regionChangeStmt = null;
 
 if (isset($_SESSION['info_message'])) {
     $infoMessage = $_SESSION['info_message'];
@@ -121,7 +121,7 @@ if ($auth->check()) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Entra Impossible Travel Monitor</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/nofly-monitor/public/style.css">
 </head>
 <body>
     <div class="container">
@@ -150,13 +150,18 @@ if ($auth->check()) {
                     <h2><span class="icon">&#9888;</span> Impossible Travel Alerts</h2>
                     <div class="table-wrapper">
                         <table>
-                            <thead><tr><th>User</th><th>Status</th><th>Travel Details</th><th>Speed (km/h)</th></tr></thead>
+                            <thead><tr><th>User</th><th>Status</th><th>Travel Details</th><th>Speed (km/h)</th><th>Email Sent</th></tr></thead>
                             <tbody>
                                 <?php if($alertsStmt): while ($row = $alertsStmt->fetch()): ?>
                                 <?php
                                     $prevStmt = $db->prepare("SELECT * FROM login_logs WHERE id = ?");
                                     $prevStmt->execute([$row['previous_log_id']]);
                                     $prevRow = $prevStmt->fetch();
+                                    
+                                    // Check if an email was sent for this specific alert
+                                    $emailStmt = $db->prepare("SELECT sent_at FROM email_alerts WHERE alert_log_id = ? AND compared_log_id = ? AND alert_type = 'impossible_travel'");
+                                    $emailStmt->execute([$row['id'], $row['previous_log_id']]);
+                                    $emailSent = $emailStmt->fetchColumn();
                                 ?>
                                 <tr class="alert-row">
                                     <td><?= htmlspecialchars($row['user_principal_name']) ?></td>
@@ -168,9 +173,10 @@ if ($auth->check()) {
                                         <div><strong>To:</strong> <?= htmlspecialchars(($row['city'] ?? 'N/A') . ', ' . ($row['country'] ?? 'N/A')) ?><br><small>(<?= htmlspecialchars($row['ip_address']) ?> at <?= htmlspecialchars($row['login_time']) ?>)</small></div>
                                     </td>
                                     <td><?= round($row['travel_speed_kph']) ?></td>
+                                    <td class="email-status"><?= $emailSent ? '??<br><small>' . $emailSent . '</small>' : '?' ?></td>
                                 </tr>
                                 <?php endwhile; if($alertsStmt && $alertsStmt->rowCount() === 0): ?>
-                                    <tr><td colspan="4">No impossible travel alerts found.</td></tr>
+                                    <tr><td colspan="5">No impossible travel alerts found.</td></tr>
                                 <?php endif; endif; ?>
                             </tbody>
                         </table>
@@ -181,13 +187,17 @@ if ($auth->check()) {
                     <h2><span class="icon">&#127758;</span> Region Change Alerts</h2>
                     <div class="table-wrapper">
                         <table>
-                            <thead><tr><th>User</th><th>Status</th><th>Travel Details</th></tr></thead>
+                            <thead><tr><th>User</th><th>Status</th><th>Travel Details</th><th>Email Sent</th></tr></thead>
                             <tbody>
                                 <?php if($regionChangeStmt): while ($row = $regionChangeStmt->fetch()): ?>
                                 <?php
                                     $prevStmt = $db->prepare("SELECT * FROM login_logs WHERE id = ?");
                                     $prevStmt->execute([$row['previous_log_id']]);
                                     $prevRow = $prevStmt->fetch();
+
+                                    $emailStmt = $db->prepare("SELECT sent_at FROM email_alerts WHERE alert_log_id = ? AND compared_log_id = ? AND alert_type = 'region_change'");
+                                    $emailStmt->execute([$row['id'], $row['previous_log_id']]);
+                                    $emailSent = $emailStmt->fetchColumn();
                                 ?>
                                 <tr class="region-change-row">
                                     <td><?= htmlspecialchars($row['user_principal_name']) ?></td>
@@ -204,9 +214,10 @@ if ($auth->check()) {
                                             <small>(<?= htmlspecialchars($row['ip_address']) ?> at <?= htmlspecialchars($row['login_time']) ?>)</small>
                                         </div>
                                     </td>
+                                    <td class="email-status"><?= $emailSent ? '??<br><small>' . $emailSent . '</small>' : '?' ?></td>
                                 </tr>
                                 <?php endwhile; if($regionChangeStmt && $regionChangeStmt->rowCount() === 0): ?>
-                                    <tr><td colspan="3">No region change alerts found.</td></tr>
+                                    <tr><td colspan="4">No region change alerts found.</td></tr>
                                 <?php endif; endif; ?>
                             </tbody>
                         </table>
