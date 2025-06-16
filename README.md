@@ -60,7 +60,7 @@ The web UI provides a convenient way to visualize the data collected by the back
 
 ### 1. Initial Setup
 - Run `composer install` in the project's root directory to download the required PHP libraries.
-- Create an empty directory named `sessions` in the project root (`/nofly-watch/sessions`). The application will use this to store session data.
+- Create an empty directory named `sessions` in the project root (`/nofly-monitor/sessions`). The application will use this to store session data.
 
 ### 2. Database Setup
 - Connect to your MySQL/MariaDB server.
