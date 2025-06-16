@@ -29,7 +29,7 @@ try {
     $db = Database::getInstance();
     echo "Database connection successful.\n";
 
-    // --- Fix Region Names from two letter to full name ---
+    // --- Fix Region Names ---
     echo "\n--- Checking for short region names to fix... ---\n";
     $stmt = $db->prepare(
         "SELECT DISTINCT ip_address, region FROM login_logs WHERE LENGTH(region) <= 3 AND region IS NOT NULL AND region != ''"
@@ -65,13 +65,23 @@ try {
                 
                 if ($newRegionName !== $oldRegion) {
                     $updateCacheStmt = $db->prepare(
-                        "INSERT INTO ip_geolocation_cache (ip_address, region) VALUES (:ip, :new_region_insert)
-                         ON DUPLICATE KEY UPDATE region = :new_region_update"
+                        "INSERT INTO ip_geolocation_cache (ip_address, region, country, city, lat, lon) 
+                         VALUES (:ip, :new_region_insert, :country_insert, :city_insert, :lat_insert, :lon_insert)
+                         ON DUPLICATE KEY UPDATE region = :new_region_update, country = :country_update, city = :city_update, lat = :lat_update, lon = :lon_update"
                     );
+                    
                     $updateCacheStmt->execute([
                         'ip' => $ipAddress,
                         'new_region_insert' => $newRegionName,
-                        'new_region_update' => $newRegionName
+                        'country_insert' => $data['country'] ?? null,
+                        'city_insert' => $data['city'] ?? null,
+                        'lat_insert' => $data['lat'] ?? null,
+                        'lon_insert' => $data['lon'] ?? null,
+                        'new_region_update' => $newRegionName,
+                        'country_update' => $data['country'] ?? null,
+                        'city_update' => $data['city'] ?? null,
+                        'lat_update' => $data['lat'] ?? null,
+                        'lon_update' => $data['lon'] ?? null,
                     ]);
                     echo "  [SUCCESS] Updated cache: '$oldRegion' -> '$newRegionName'\n";
 
