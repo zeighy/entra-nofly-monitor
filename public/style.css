@@ -4,6 +4,7 @@
     --secondary-color: #333;
     --accent-color: #d9534f;
     --warning-bg: #fffbe6;
+    --region-change-bg: #e6f7ff; /* Light blue for region changes */
     --card-bg: #ffffff;
     --border-color: #e1e1e1;
     --text-color: #333;
@@ -78,6 +79,10 @@ section.alerts h2 .icon {
     color: var(--accent-color);
 }
 
+section.region-changes h2 .icon {
+    color: #1890ff; /* Blue for region change icon */
+}
+
 .table-wrapper {
     overflow-x: auto;
 }
@@ -108,9 +113,9 @@ tbody tr:hover {
     background-color: #fdf2f2;
     font-weight: bold;
 }
-.alert-row td:first-child::before {
-    content: '?? ';
-    color: var(--accent-color);
+
+.region-change-row {
+    background-color: var(--region-change-bg);
 }
 
 .failure-row {
