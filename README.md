@@ -63,7 +63,7 @@ The web UI provides a convenient way to visualize the data collected by the back
 
 ### 2. Database Setup
 - Connect to your MySQL/MariaDB server and create a new database.
-- Run the SQL commands in the `db_setup.sql` file to create all the necessary tables.
+- Run the SQL commands in the `dbsetup.txt` file to create all the necessary tables.
 - **Security Note**: The setup script creates a default user `admin` with the password `password`. Please change this immediately.
 
 ### 3. Microsoft Entra App Registration
@@ -81,7 +81,7 @@ Register an application in your Microsoft Entra ID tenant to grant this script p
 10. Click the **"Grant admin consent for [Your Tenant]"** button.
 
 ### 4. Application Configuration
-- Rename `secrets.template.php` to `secrets.php`.
+- Rename `generic_secrets.php` to `secrets.php`.
 - Open `secrets.php` and fill in all required values (database credentials, Entra app credentials, SMTP details).
 
 ### 5. Cron Job Setup
