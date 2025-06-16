@@ -1,12 +1,11 @@
 <?php
-
-define('BASE_PATH', '/nofly-watch/public/index.php');
+define('BASE_PATH', '/nofly-monitor/public/index.php');
 
 // --- Session Handling ---
 $session_path = __DIR__ . '/../sessions';
 if (!is_dir($session_path)) {
     if (!@mkdir($session_path, 0777, true) && !is_dir($session_path)) {
-         die("FATAL ERROR: Could not create session directory at '$session_path'. Please verify that the parent directory ('/nofly-watch/') is writable by the web server user ('nobody').");
+         die("FATAL ERROR: Could not create session directory at '$session_path'. Please verify that the parent directory is writable by the web server user ('nobody').");
     }
 }
 session_save_path($session_path);
