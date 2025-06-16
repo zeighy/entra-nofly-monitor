@@ -1,7 +1,7 @@
 <?php
 // This is a one-time helper script to find IP addresses with two-character
 // region codes in the login_logs table and update them to the full region name.
-// It also prunes old entries from the ip_geolocation_cache table.
+// It also prunes old entries from the ip_geolocation_cache table and email_alerts tables.
 // Feel free to run on a daily cron to prune cached IPs.
 
 echo "--- Starting Region Name Fixer & Cache Pruner Script ---\n\n";
@@ -104,12 +104,21 @@ try {
 
     // --- Prune Old Cached IP Info ---
     echo "\n--- Pruning cached IP info older than 90 days... ---\n";
-    $pruneStmt = $db->prepare(
+    $pruneIpStmt = $db->prepare(
         "DELETE FROM ip_geolocation_cache WHERE last_updated < NOW() - INTERVAL 90 DAY"
     );
-    $pruneStmt->execute();
-    $prunedRows = $pruneStmt->rowCount();
-    echo "Pruned $prunedRows old entries from the IP geolocation cache.\n";
+    $pruneIpStmt->execute();
+    $prunedIpRows = $pruneIpStmt->rowCount();
+    echo "Pruned $prunedIpRows old entries from the IP geolocation cache.\n";
+
+    // --- Prune Old Email Alerts ---
+    echo "\n--- Pruning email alerts older than 14 days... ---\n";
+    $pruneEmailStmt = $db->prepare(
+        "DELETE FROM email_alerts WHERE sent_at < NOW() - INTERVAL 14 DAY"
+    );
+    $pruneEmailStmt->execute();
+    $prunedEmailRows = $pruneEmailStmt->rowCount();
+    echo "Pruned $prunedEmailRows old entries from the email_alerts table.\n";
 
 
     echo "\n--- Script Finished ---\n";
