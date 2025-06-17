@@ -4,7 +4,7 @@
     --secondary-color: #333;
     --accent-color: #d9534f;
     --warning-bg: #fffbe6;
-    --region-change-bg: #e6f7ff; 
+    --region-change-bg: #e6f7ff;
     --card-bg: #ffffff;
     --border-color: #e1e1e1;
     --text-color: #333;
@@ -12,6 +12,7 @@
     --info-bg: #e6f7ff;
     --info-border: #91d5ff;
     --info-text: #0050b3;
+    --reprocess-color: #ffc107; /* Amber for the reprocess button */
 }
 
 body {
@@ -67,20 +68,6 @@ section h2 {
     padding-bottom: 0.5rem;
     display: flex;
     align-items: center;
-}
-
-section h2 .icon {
-    margin-right: 0.75rem;
-    color: var(--primary-color);
-    font-size: 1.5rem;
-}
-
-section.alerts h2 .icon {
-    color: var(--accent-color);
-}
-
-section.region-changes h2 .icon {
-    color: #1890ff; 
 }
 
 .table-wrapper {
@@ -143,7 +130,7 @@ tbody tr:hover {
 
 .email-status {
     text-align: center;
-    font-size: 1.2em;
+    font-weight: normal;
 }
 
 .login-box {
@@ -184,7 +171,6 @@ tbody tr:hover {
     font-size: 1rem;
     font-weight: bold;
     cursor: pointer;
-    transition: background-color 0.2s;
     margin-top: 1rem;
 }
 .login-box button:hover {
@@ -213,8 +199,10 @@ tbody tr:hover {
 
 .action-bar {
     display: flex;
+    flex-wrap: wrap;
     gap: 1rem;
     margin-bottom: 2rem;
+    align-items: center;
 }
 
 .action-button {
@@ -225,8 +213,90 @@ tbody tr:hover {
     text-decoration: none;
     font-weight: 500;
     transition: background-color 0.2s;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
 }
 
 .action-button:hover {
     background-color: #00457c;
+}
+
+.export-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.export-form select, .export-form button {
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: white;
+}
+
+.export-form button {
+    background-color: #17a2b8;
+    color: white;
+    cursor: pointer;
+}
+
+.reprocess-button {
+    background-color: var(--reprocess-color);
+    color: #212529;
+}
+.reprocess-button:hover {
+    background-color: #e0a800;
+}
+
+.whitelist-form {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.whitelist-form input[type="text"] {
+    flex-grow: 1;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+.whitelist-form button {
+    padding: 0.5rem 1rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.delete-button {
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+}
+
+.help-section {
+    background-color: #f8f9fa;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 2rem;
+}
+
+.help-section summary {
+    font-weight: bold;
+    cursor: pointer;
+    color: var(--primary-color);
+}
+
+.help-section div {
+    padding-top: 1rem;
+}
+
+.help-section h4 {
+    margin-top: 0;
 }

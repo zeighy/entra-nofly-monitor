@@ -10,11 +10,22 @@ class LogProcessor {
     private PDO $db;
     private GraphHelper $graphHelper;
     private Geolocation $geolocation;
+    private array $ipWhitelist = [];
 
     public function __construct() {
         $this->db = Database::getInstance();
         $this->graphHelper = new GraphHelper();
         $this->geolocation = new Geolocation();
+        $this->loadIpWhitelist();
+    }
+    
+    private function loadIpWhitelist(): void {
+        $stmt = $this->db->query("SELECT ip_address FROM ip_whitelist");
+        $this->ipWhitelist = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+    }
+
+    private function isIpWhitelisted(string $ipAddress): bool {
+        return in_array($ipAddress, $this->ipWhitelist);
     }
 
     public function run(): void {
@@ -26,23 +37,15 @@ class LogProcessor {
 
         $signInLogs = array_reverse($signInLogs);
 
-        /** @var SignIn $log */
         foreach ($signInLogs as $log) {
             $ipAddress = $log->getIpAddress();
-            if (empty($ipAddress) || str_starts_with($ipAddress, '127.')) {
-                continue;
-            }
-
-            $logIdFromEntra = $log->getId();
-            if ($this->logExists($logIdFromEntra)) {
-                continue;
-            }
+            if (empty($ipAddress) || str_starts_with($ipAddress, '127.')) continue;
+            if ($this->logExists($log->getId())) continue;
 
             $userPrincipalName = $log->getUserPrincipalName();
             echo "Processing log for: " . $userPrincipalName . "\n";
 
             $geoInfo = $this->geolocation->getGeoInfo($ipAddress);
-            
             $loginTime = $log->getCreatedDateTime();
             $loginTime->setTimezone(new DateTimeZone('UTC'));
 
@@ -51,64 +54,39 @@ class LogProcessor {
             $loginStatusMessage = $loginWasSuccessful ? 'Success' : ('Failure: ' . ($status ? $status->getFailureReason() : 'Unknown'));
 
             $currentLogData = [
-                'entra_log_id' => $logIdFromEntra,
-                'user_id' => $log->getUserId(),
-                'user_principal_name' => $userPrincipalName,
-                'ip_address' => $ipAddress,
-                'login_time' => $loginTime->format('Y-m-d H:i:s'),
-                'status' => $loginStatusMessage,
-                'country' => $geoInfo['country'] ?? null,
-                'region' => $geoInfo['regionName'] ?? $geoInfo['region'] ?? null,
-                'city' => $geoInfo['city'] ?? null,
-                'lat' => $geoInfo['lat'] ?? null,
-                'lon' => $geoInfo['lon'] ?? null,
-                'is_impossible_travel' => false,
-                'is_region_change' => false,
-                'travel_speed_kph' => null,
-                'previous_log_id' => null
+                'entra_log_id' => $log->getId(), 'user_id' => $log->getUserId(),
+                'user_principal_name' => $userPrincipalName, 'ip_address' => $ipAddress,
+                'login_time' => $loginTime->format('Y-m-d H:i:s'), 'status' => $loginStatusMessage,
+                'country' => $geoInfo['country'] ?? null, 'region' => $geoInfo['regionName'] ?? $geoInfo['region'] ?? null,
+                'city' => $geoInfo['city'] ?? null, 'lat' => $geoInfo['lat'] ?? null, 'lon' => $geoInfo['lon'] ?? null,
+                'is_impossible_travel' => false, 'is_region_change' => false,
+                'travel_speed_kph' => null, 'previous_log_id' => null
             ];
             
             $previousLogins = $this->getPreviousLoginsInLast24Hours($log->getUserId(), $currentLogData['login_time']);
 
             $isImpossibleTravel = false;
             $isRegionChangeForUi = false;
+            $shouldEmailForRegionChange = false;
+            $fastestPreviousLog = null;
+            $regionChangePreviousLogForUi = null;
             
             if (!empty($previousLogins)) {
                 $maxSpeedKph = 0;
-                $fastestPreviousLog = null;
-                $regionChangePreviousLogForUi = null;
 
                 foreach ($previousLogins as $previousLog) {
-                    // --- Region Change Detection ---
-                    if (!$isRegionChangeForUi &&
-                        $previousLog['ip_address'] !== $currentLogData['ip_address'] &&
-                        !empty($previousLog['region']) &&
-                        !empty($currentLogData['region']) &&
-                        $previousLog['region'] !== $currentLogData['region'] &&
-                        $loginWasSuccessful && 
-                        $previousLog['status'] === 'Success'
-                       )
-                    {
+                    if (!$isRegionChangeForUi && $previousLog['ip_address'] !== $currentLogData['ip_address'] && !empty($previousLog['region']) && !empty($currentLogData['region']) && $previousLog['region'] !== $currentLogData['region'] && $loginWasSuccessful && $previousLog['status'] === 'Success') {
                         $isRegionChangeForUi = true;
                         $regionChangePreviousLogForUi = $previousLog;
-                        
-                        // Check if the distance warrants an email alert, otherwise log for display in web ui
                         $distance = $this->calculateDistance($previousLog['lat'], $previousLog['lon'], $currentLogData['lat'], $currentLogData['lon']);
                         if ($distance > (float)$_ENV['REGION_CHANGE_IGNORE_KM']) {
-                            $incidentsForEmail[] = [
-                                'type' => 'region_change',
-                                'current_log' => $currentLogData,
-                                'previous_log' => $previousLog,
-                            ];
+                            $shouldEmailForRegionChange = true;
                         }
                     }
 
-                    // --- Impossible Travel Detection ---
                     if ($previousLog['ip_address'] !== $currentLogData['ip_address'] && !empty($previousLog['lat']) && !empty($currentLogData['lat'])) {
                         $distance = $this->calculateDistance($previousLog['lat'], $previousLog['lon'], $currentLogData['lat'], $currentLogData['lon']);
-                        $timeDiffSeconds = $loginTime->getTimestamp() - (new DateTime($previousLog['login_time']))->getTimestamp();
-                        $timeDiffHours = $timeDiffSeconds > 0 ? $timeDiffSeconds / 3600 : 0;
-
+                        $timeDiffHours = ((new DateTime($currentLogData['login_time']))->getTimestamp() - (new DateTime($previousLog['login_time']))->getTimestamp()) / 3600;
                         if ($timeDiffHours > 0) {
                             $speedKph = $distance / $timeDiffHours;
                             if ($speedKph > $maxSpeedKph) {
@@ -122,7 +100,6 @@ class LogProcessor {
                 
                 $currentLogData['is_impossible_travel'] = $isImpossibleTravel;
                 $currentLogData['is_region_change'] = $isRegionChangeForUi;
-
                 if ($isImpossibleTravel) {
                     $currentLogData['travel_speed_kph'] = $maxSpeedKph;
                     $currentLogData['previous_log_id'] = $fastestPreviousLog['id']; 
@@ -131,29 +108,24 @@ class LogProcessor {
                 }
             }
 
-            // Save the log first to get its database ID
             $newLogId = $this->saveLoginLog($currentLogData);
             $currentLogData['id'] = $newLogId; 
 
-            // Now, check if impossible travel should be added to the email digest, otherwise log for display in web ui
             if ($isImpossibleTravel) {
                 $previousLoginWasSuccessful = ($fastestPreviousLog['status'] === 'Success');
-                if ($loginWasSuccessful && $previousLoginWasSuccessful) {
-                    $incidentsForEmail[] = [
-                        'type' => 'impossible_travel',
-                        'current_log' => $currentLogData,
-                        'previous_log' => $fastestPreviousLog,
-                        'speed' => $maxSpeedKph,
-                    ];
+                if ($loginWasSuccessful && $previousLoginWasSuccessful && !$this->isIpWhitelisted($ipAddress)) {
+                    $incidentsForEmail[] = ['type' => 'impossible_travel', 'current_log' => $currentLogData, 'previous_log' => $fastestPreviousLog, 'speed' => $maxSpeedKph];
                 }
                 echo "IMPOSSIBLE TRAVEL DETECTED for " . $currentLogData['user_principal_name'] . "\n";
+            }
+            if ($shouldEmailForRegionChange && !$this->isIpWhitelisted($ipAddress)) {
+                 $incidentsForEmail[] = ['type' => 'region_change', 'current_log' => $currentLogData, 'previous_log' => $regionChangePreviousLogForUi];
             }
             if ($isRegionChangeForUi) {
                 echo "REGION CHANGE DETECTED for " . $currentLogData['user_principal_name'] . "\n";
             }
         }
         
-        // Send the single consolidated email at the end
         if (!empty($incidentsForEmail)) {
             echo "Sending consolidated email for " . count($incidentsForEmail) . " incidents.\n";
             Mailer::sendConsolidatedAlert($incidentsForEmail, $this->db);
@@ -170,13 +142,7 @@ class LogProcessor {
     }
     
     private function getPreviousLoginsInLast24Hours(string $userId, string $currentLoginTime): array {
-        $stmt = $this->db->prepare(
-            "SELECT * FROM login_logs 
-             WHERE user_id = :userId 
-             AND login_time < :currentLoginTime
-             AND login_time >= :time24HoursAgo
-             ORDER BY login_time DESC"
-        );
+        $stmt = $this->db->prepare("SELECT * FROM login_logs WHERE user_id = :userId AND login_time < :currentLoginTime AND login_time >= :time24HoursAgo ORDER BY login_time DESC");
         $twentyFourHoursAgo = (new DateTime($currentLoginTime))->modify('-24 hours')->format('Y-m-d H:i:s');
         $stmt->execute(['userId' => $userId, 'currentLoginTime' => $currentLoginTime, 'time24HoursAgo' => $twentyFourHoursAgo]);
         return $stmt->fetchAll() ?: [];
@@ -185,19 +151,14 @@ class LogProcessor {
     private function saveLoginLog(array $data): int {
         $data['is_impossible_travel'] = (int)($data['is_impossible_travel'] ?? false);
         $data['is_region_change'] = (int)($data['is_region_change'] ?? false);
-        
-        $sql = "INSERT INTO login_logs (entra_log_id, user_id, user_principal_name, ip_address, login_time, status, country, region, city, lat, lon, is_impossible_travel, is_region_change, travel_speed_kph, previous_log_id)
-                VALUES (:entra_log_id, :user_id, :user_principal_name, :ip_address, :login_time, :status, :country, :region, :city, :lat, :lon, :is_impossible_travel, :is_region_change, :travel_speed_kph, :previous_log_id)";
-        
+        $sql = "INSERT INTO login_logs (entra_log_id, user_id, user_principal_name, ip_address, login_time, status, country, region, city, lat, lon, is_impossible_travel, is_region_change, travel_speed_kph, previous_log_id) VALUES (:entra_log_id, :user_id, :user_principal_name, :ip_address, :login_time, :status, :country, :region, :city, :lat, :lon, :is_impossible_travel, :is_region_change, :travel_speed_kph, :previous_log_id)";
         $stmt = $this->db->prepare($sql);
         $stmt->execute($data);
         return (int)$this->db->lastInsertId();
     }
     
     private function calculateDistance(?float $lat1, ?float $lon1, ?float $lat2, ?float $lon2): float {
-        if ($lat1 === null || $lon1 === null || $lat2 === null || $lon2 === null) {
-            return 0;
-        }
+        if ($lat1 === null || $lon1 === null || $lat2 === null || $lon2 === null) return 0;
         $earthRadiusKm = 6371;
         $dLat = deg2rad($lat2 - $lat1);
         $dLon = deg2rad($lon2 - $lon1);
