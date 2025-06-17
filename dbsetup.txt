@@ -1,3 +1,5 @@
+-- This script can be directly ran as a full sql script, but we recommend running each command separately
+
 -- This table stores the administrator accounts used to log into the web UI.
 CREATE TABLE `admins` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -9,7 +11,7 @@ CREATE TABLE `admins` (
 -- This command inserts a default admin user.
 -- Username: admin
 -- Password: password
--- Preferably, change the username to something else and update the bcrypt hash with a different password
+-- Preferably, change the username to something else and update the bcrypt hash from a different password
 INSERT INTO `admins` (`username`, `password_hash`) VALUES ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi');
 
 
@@ -34,7 +36,7 @@ CREATE TABLE `login_logs` (
   `user_principal_name` VARCHAR(255) NOT NULL,
   `ip_address` VARCHAR(45) NOT NULL,
   `login_time` DATETIME NOT NULL,
-  `status` VARCHAR(255) NULL,
+  `status` TEXT NULL,
   `country` VARCHAR(255) NULL,
   `region` VARCHAR(255) NULL,
   `city` VARCHAR(255) NULL,
@@ -59,4 +61,13 @@ CREATE TABLE `email_alerts` (
   `sent_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX `alert_log_id_idx` (`alert_log_id`),
   INDEX `compared_log_id_idx` (`compared_log_id`)
+);
+
+
+-- This table stores whitelisted IP addresses that should not trigger email alerts.
+CREATE TABLE `ip_whitelist` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `ip_address` VARCHAR(45) NOT NULL UNIQUE,
+  `note` TEXT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
