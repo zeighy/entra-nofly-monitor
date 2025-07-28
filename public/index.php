@@ -1,5 +1,5 @@
 <?php
-define('BASE_PATH', '/nofly-watch/public/index.php');
+define('BASE_PATH', '/nofly-monitor/public/index.php');
 
 // --- Session Handling ---
 $session_path = __DIR__ . '/../sessions';
@@ -186,7 +186,7 @@ if ($auth->check()) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Entra Impossible Travel Monitor</title>
-    <link rel="stylesheet" href="/nofly-watch/public/style.css">
+    <link rel="stylesheet" href="/nofly-monitor/public/style.css">
 </head>
 <body>
     <div class="container">
