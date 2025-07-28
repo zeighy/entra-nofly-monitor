@@ -32,7 +32,7 @@ class GraphHelper {
         try {
             $requestConfiguration = new SignInsRequestBuilderGetRequestConfiguration();
             $queryParameters = new SignInsRequestBuilderGetQueryParameters();
-            $queryParameters->top = 150;
+            $queryParameters->top = 500;
             $queryParameters->orderby = ['createdDateTime desc'];
             $requestConfiguration->queryParameters = $queryParameters;
             
