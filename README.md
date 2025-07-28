@@ -12,6 +12,7 @@ A standalone PHP application to monitor Microsoft Entra (Azure AD) sign-in logs 
 
 -   **Impossible Travel Detection**: Flags events that exceed a configurable speed threshold. The UI will show all such events, but an email alert is only sent if both compared logins were successful and the IP is not whitelisted.
 -   **Region Change Alerts**: Detects when a user has successful logins in two different states/provinces. The UI will display all such changes, but an email alert is only sent if the distance between the locations is greater than a configurable threshold and the IP is not whitelisted.
+-   **Authentication Device Monitoring**: Tracks when users add or remove Multi-Factor Authentication (MFA) devices (like Authenticator Apps or Security Keys) and includes these changes in the UI and email alerts.
 -   **IP Whitelisting**: A manageable list in the UI to add trusted IP addresses (like corporate VPNs or offices). Whitelisted IPs will still have their anomalies logged but will be suppressed from email alerts to reduce noise.
 -   **Consolidated Email Alerts**: Sends a single digest email per run, summarizing all detected incidents with a breakdown by type and user count to prevent inbox spam.
 -   **Web UI for Review**: A secure, login-protected dashboard to review all impossible travel alerts, region change alerts, and a filterable history of all recent sign-ins. It also indicates which specific alerts triggered an email notification.
@@ -33,6 +34,7 @@ This script is designed to be run by a cron job at regular intervals (e.g., ever
     * Compares the current login against all other logins for that same user in the last 24 hours.
     * **Flags Impossible Travel**: Flags any event exceeding the speed threshold for the UI.
     * **Flags Region Change**: Flags any change in state/province between two successful logins for the UI.
+    * **Checks for Device Changes**: For each unique user in the log batch, it compares their current MFA devices in Entra against a saved snapshot in the local database. Any added or removed devices are flagged as incidents.
 3.  **Builds Email Digest**: It collects all incidents that meet the stricter criteria for email alerts (e.g., not whitelisted, region change distance exceeded) into a single list.
 4.  **Sends Email**: If any email-worthy incidents were found, it sends one single, consolidated email digest to all configured recipients and logs the sent alerts in the `email_alerts` table.
 5.  **Prunes Old Data**: Automatically deletes logs from the `login_logs` table that are older than 180 days.
@@ -41,7 +43,8 @@ This script is designed to be run by a cron job at regular intervals (e.g., ever
 
 The web UI provides a convenient way to visualize and manage the data collected by the background processor.
 -   It is protected by a local username and password stored in the `admins` database table.
--   It includes a new **IP Whitelist Management** section to add and remove trusted IPs.
+-   It includes a **IP Whitelist Management** section to add and remove trusted IPs.
+-   It includes a **Authentication Device Changes** section to display recent MFA updates.
 -   It displays separate tables for **Impossible Travel Alerts** and **Region Change Alerts**, each with an "Email Sent" column indicating if a notification was generated.
 -   The main log view is now conveniently filtered to the **last 24 hours**.
 -   It includes buttons to **Manually Trigger Sync** and to **Reprocess All Logs** (with a confirmation warning).
@@ -81,7 +84,7 @@ Register an application in your Microsoft Entra ID tenant to grant this script p
 6.  Copy the **Application (client) ID** and the **Directory (tenant) ID**.
 7.  Go to **Certificates & secrets**, click **+ New client secret**, and **immediately copy the secret's "Value"**.
 8.  Go to **API permissions**, click **+ Add a permission**, select **Microsoft Graph**, and choose **Application permissions**.
-9.  Search for and add `AuditLog.Read.All` and `User.Read.All`.
+9.  Search for and add `AuditLog.Read.All`, `UserAuthenticationMethod.Read.All`, and `User.Read.All`.
 10. Click the **"Grant admin consent for [Your Tenant]"** button.
 
 ### 4. Application Configuration
@@ -150,3 +153,54 @@ All configuration is handled in the `secrets.php` file.
 -   **File Permissions**: Ensure that your web server user (e.g., `www-data`, `nobody`) has write permissions for the `/sessions` directory. All other application files should be read-only for the web server user.
 -   **Web UI Access**: The web UI is protected by the local application login. For enhanced security, consider placing it behind an IP whitelist, a VPN, or a Zero Trust solution like Cloudflare Access.
 -   **Headless Operation**: The application can run perfectly well without the Web UI. If you do not need it, you can block all web access to the `/nofly-monitor` directory in your server configuration for maximum security.
+
+## Upgrading from a Previous Version
+
+If you are upgrading from a version that did not include authentication device monitoring, follow these steps:
+
+**Update Database**: Run the following SQL commands on your database to add the new tables required for this feature.
+
+```sql
+CREATE TABLE `user_auth_devices` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` VARCHAR(255) NOT NULL,
+  `device_id` VARCHAR(255) NOT NULL,
+  `display_name` VARCHAR(255) NULL,
+  `device_type` VARCHAR(255) NULL,
+  `last_seen` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY `user_device_unique` (`user_id`, `device_id`)
+);
+
+CREATE TABLE `auth_device_changes` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` VARCHAR(255) NOT NULL,
+  `user_principal_name` VARCHAR(255) NOT NULL,
+  `device_display_name` VARCHAR(255) NULL,
+  `change_type` VARCHAR(50) NOT NULL,
+  `change_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `user_id_idx` (`user_id`),
+  INDEX `change_time_idx` (`change_time`)
+);
+```
+
+**Update App Permissions**: In the Microsoft Entra admin center, navigate to your app registration's API permissions and add the `UserAuthenticationMethod.Read.All` permission. Remember to Grant admin consent.
+
+**Update Application Files**: Replace your old application files with the latest versions, paying special attention to:
+
+`src/GraphHelper.php`
+
+`src/LogProcessor.php`
+
+`src/Mailer.php`
+
+`public/index.php`
+
+`public/style.css`
+
+**Populate Initial Device Data**: To establish a baseline of current devices, run the new helper script from your host machine's command line. This is a crucial one-time step.
+
+```bash
+/path/to/php /path/to/your/project/nofly-watch/populate_devices.php
+```
+
+This will populate the `user_auth_devices` table. From this point on, the main `run_background_task.php` script will automatically detect any changes from this baseline. You can delete the `populate_devices.php` file afterwards as it is no longer needed, or you may want to block public web access to it.
