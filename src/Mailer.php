@@ -6,11 +6,6 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 class Mailer {
-    /**
-     * Sends a single consolidated email and logs the alert to the database.
-     * @param array $incidents
-     * @param PDO $db The database connection
-     */
     public static function sendConsolidatedAlert(array $incidents, PDO $db): void {
         if (empty($incidents)) {
             return;
@@ -41,12 +36,36 @@ class Mailer {
                 }
             }
 
+            // --- Separate incidents by type ---
+            $travelRegionIncidents = [];
+            $deviceChangeIncidents = [];
+            foreach ($incidents as $incident) {
+                if ($incident['type'] === 'auth_device_change') {
+                    $deviceChangeIncidents[] = $incident;
+                } else {
+                    $travelRegionIncidents[] = $incident;
+                }
+            }
+
+            // Group device changes by user for consolidation
+            $groupedDeviceChanges = [];
+            foreach ($deviceChangeIncidents as $incident) {
+                $user = $incident['user'];
+                $change = $incident['change']; // 'Added' or 'Removed'
+                $device = $incident['device'];
+                if (!isset($groupedDeviceChanges[$user])) {
+                    $groupedDeviceChanges[$user] = ['Added' => [], 'Removed' => []];
+                }
+                $groupedDeviceChanges[$user][$change][] = $device;
+            }
+
             // --- Build the Consolidated Email Body ---
             $totalIncidents = count($incidents);
             $uniqueUsers = count(array_unique(array_column(array_column($incidents, 'current_log'), 'user_principal_name')));
             $incidentTypes = array_column($incidents, 'type');
             $impossibleTravelCount = array_count_values($incidentTypes)['impossible_travel'] ?? 0;
             $regionChangeCount = array_count_values($incidentTypes)['region_change'] ?? 0;
+            $deviceChangeCount = count($deviceChangeIncidents);
             
             $body = "<h2>Consolidated Security Alert</h2>";
             $body .= "<p>A recent scan detected the following notable events:</p>";
@@ -55,11 +74,13 @@ class Mailer {
             $body .= "<li><strong>Unique Users Affected:</strong> " . $uniqueUsers . "</li>";
             $body .= "<li><strong>Impossible Travel Events:</strong> " . $impossibleTravelCount . "</li>";
             $body .= "<li><strong>Region Change Events:</strong> " . $regionChangeCount . "</li>";
+            $body .= "<li><strong>Auth Device Changes:</strong> " . $deviceChangeCount . "</li>";
             $body .= "</ul>";
             $body .= "<p><i><b>Note:</b> A single recent sign-in may generate multiple incidents if it is anomalous when compared against several different logins from the past 24 hours.</i></p>";
             $body .= "<h2>Incident Details</h2>";
 
-            foreach ($incidents as $index => $incident) {
+            // --- Display Travel and Region incidents first ---
+            foreach ($travelRegionIncidents as $index => $incident) {
                 $currentLog = $incident['current_log'];
                 $previousLog = $incident['previous_log'];
 
@@ -78,15 +99,23 @@ class Mailer {
                 $body .= "<h4>Current Login (To):</h4>";
                 $body .= "<p><strong>Time:</strong> " . $currentLog['login_time'] . " UTC<br><strong>Location:</strong> " . htmlspecialchars(($currentLog['city'] ?? 'N/A') . ', ' . ($currentLog['region'] ?? 'N/A') . ', ' . ($currentLog['country'] ?? 'N/A')) . "<br><strong>IP Address:</strong> " . htmlspecialchars($currentLog['ip_address']) . "</p>";
 
-                // --- Log this specific alert to the database ---
-                $logStmt = $db->prepare(
-                    "INSERT INTO email_alerts (alert_log_id, compared_log_id, alert_type) VALUES (?, ?, ?)"
-                );
-                $logStmt->execute([
-                    $currentLog['id'],
-                    $previousLog['id'],
-                    $incident['type']
-                ]);
+                $logStmt = $db->prepare("INSERT INTO email_alerts (alert_log_id, compared_log_id, alert_type) VALUES (?, ?, ?)");
+                $logStmt->execute([$currentLog['id'], $previousLog['id'], $incident['type']]);
+            }
+
+            // --- Display consolidated device changes at the bottom ---
+            if (!empty($groupedDeviceChanges)) {
+                $body .= "<hr><h3>Authentication Device Changes</h3>";
+                foreach($groupedDeviceChanges as $user => $changes) {
+                    $body .= "<p><strong>User:</strong> " . htmlspecialchars($user) . "</p><ul>";
+                    if (!empty($changes['Added'])) {
+                        $body .= "<li><strong>Devices Added:</strong> " . htmlspecialchars(implode(', ', $changes['Added'])) . "</li>";
+                    }
+                    if (!empty($changes['Removed'])) {
+                        $body .= "<li><strong>Devices Removed:</strong> " . htmlspecialchars(implode(', ', $changes['Removed'])) . "</li>";
+                    }
+                    $body .= "</ul>";
+                }
             }
 
             // Content
