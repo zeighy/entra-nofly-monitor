@@ -71,3 +71,27 @@ CREATE TABLE `ip_whitelist` (
   `note` TEXT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- This table stores a snapshot of a user's currently registered authentication devices.
+CREATE TABLE `user_auth_devices` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` VARCHAR(255) NOT NULL,
+  `device_id` VARCHAR(255) NOT NULL,
+  `display_name` VARCHAR(255) NULL,
+  `device_type` VARCHAR(255) NULL,
+  `last_seen` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY `user_device_unique` (`user_id`, `device_id`)
+);
+
+
+-- This table logs every time a device is added or removed for a user.
+CREATE TABLE `auth_device_changes` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` VARCHAR(255) NOT NULL,
+  `user_principal_name` VARCHAR(255) NOT NULL,
+  `device_display_name` VARCHAR(255) NULL,
+  `change_type` VARCHAR(50) NOT NULL,
+  `change_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `user_id_idx` (`user_id`),
+  INDEX `change_time_idx` (`change_time`)
+);

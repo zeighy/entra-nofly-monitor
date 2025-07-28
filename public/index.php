@@ -41,6 +41,7 @@ $alertsStmt = null;
 $logsStmt = null;
 $regionChangeStmt = null;
 $whitelistStmt = null;
+$deviceChangeStmt = null;
 
 if (isset($_SESSION['info_message'])) {
     $infoMessage = $_SESSION['info_message'];
@@ -64,7 +65,7 @@ if (isset($_GET['logout'])) {
 }
 
 if ($auth->check()) {
-    // --- Handle Whitelist and Export Actions via POST to avoid long URLs ---
+    // --- Handle Whitelist, Export, and Reprocess Actions via POST ---
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (isset($_POST['add_whitelist'])) {
             if (!empty($_POST['ip_address'])) {
@@ -174,6 +175,7 @@ if ($auth->check()) {
     
     $alertsStmt = $db->query("SELECT * FROM login_logs WHERE is_impossible_travel = 1 ORDER BY login_time DESC LIMIT 100");
     $regionChangeStmt = $db->query("SELECT * FROM login_logs WHERE is_region_change = 1 ORDER BY login_time DESC LIMIT 100");
+    $deviceChangeStmt = $db->query("SELECT * FROM auth_device_changes WHERE change_time >= NOW() - INTERVAL 1 DAY ORDER BY change_time DESC");
     $logsStmt = $db->query("SELECT * FROM login_logs WHERE login_time >= NOW() - INTERVAL 1 DAY ORDER BY login_time DESC");
     $whitelistStmt = $db->query("SELECT * FROM ip_whitelist ORDER BY created_at DESC");
 }
@@ -225,10 +227,11 @@ if ($auth->check()) {
                     <summary>Help & Logic Explanation</summary>
                     <div>
                         <h4>How Alerts Are Processed</h4>
-                        <p>This tool checks for two types of anomalies: Impossible Travel and Region Changes.</p>
+                        <p>This tool checks for three types of anomalies: Authentication Device Changes, Impossible Travel, and Region Changes.</p>
                         <ul>
-                            <li><strong>Impossible Travel:</strong> This is flagged if a user's login speed between any two locations in the last 24 hours exceeds the `IMPOSSIBLE_TRAVEL_SPEED_THRESHOLD` set in your `secrets.php` file. The UI will show all such events, but an email alert is only sent if **both** logins being compared were successful.</li>
-                            <li><strong>Region Change:</strong> This is flagged for the UI if a user has successful logins in two different states or provinces within a 24-hour period. An email alert is only sent if the distance of this change is greater than the `REGION_CHANGE_IGNORE_KM` value in your `secrets.php` file.</li>
+                            <li><strong>Auth Device Change:</strong> This is flagged whenever a user adds or removes an MFA device (like an Authenticator App or Security Key). An email alert is always sent for these events.</li>
+                            <li><strong>Impossible Travel:</strong> This is flagged if a user's login speed between any two locations in the last 24 hours exceeds the `IMPOSSIBLE_TRAVEL_SPEED_THRESHOLD`. The UI will show all such events, but an email alert is only sent if **both** logins being compared were successful and neither IP is on the whitelist.</li>
+                            <li><strong>Region Change:</strong> This is flagged for the UI if a user has successful logins in two different states or provinces within a 24-hour period. An email alert is only sent if the distance of this change is greater than the `REGION_CHANGE_IGNORE_KM` and neither IP is on the whitelist.</li>
                         </ul>
                         <h4>Email Notifications</h4>
                         <p>A single, consolidated email is sent at the end of each script run, summarizing all new incidents that meet the criteria for an email alert. The 'Email Sent' column in the alert tables on this page indicates if a specific alert was included in a digest and when it was sent.</p>
@@ -249,6 +252,26 @@ if ($auth->check()) {
                     </div>
                 </details>
 
+                <section class="device-changes">
+                    <h2>Authentication Device Changes (Last 24 Hours)</h2>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead><tr><th>User</th><th>Device</th><th>Change</th><th>Time</th></tr></thead>
+                            <tbody>
+                                <?php if($deviceChangeStmt): while ($row = $deviceChangeStmt->fetch()): ?>
+                                <tr class="device-change-row-<?= strtolower($row['change_type']) ?>">
+                                    <td><?= htmlspecialchars($row['user_principal_name']) ?></td>
+                                    <td><?= htmlspecialchars($row['device_display_name']) ?></td>
+                                    <td><?= htmlspecialchars($row['change_type']) ?></td>
+                                    <td><span class="utc-time" data-timestamp="<?= htmlspecialchars($row['change_time']) ?> UTC"><?= htmlspecialchars($row['change_time']) ?> UTC</span></td>
+                                </tr>
+                                <?php endwhile; if($deviceChangeStmt && $deviceChangeStmt->rowCount() === 0): ?>
+                                    <tr><td colspan="4">No authentication device changes detected in the last 24 hours.</td></tr>
+                                <?php endif; endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
 
                 <section class="whitelist-manager">
                     <h2>IP Whitelist Management</h2>
@@ -384,7 +407,6 @@ if ($auth->check()) {
         <?php endif; ?>
     </div>
     
-    <!-- JavaScript to convert UTC times to local time -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const timeElements = document.querySelectorAll('.utc-time');

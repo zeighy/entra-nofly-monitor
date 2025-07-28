@@ -5,12 +5,16 @@ use PDO;
 use DateTime;
 use DateTimeZone;
 use Microsoft\Graph\Generated\Models\SignIn;
+use Microsoft\Graph\Generated\Models\Fido2AuthenticationMethod;
+use Microsoft\Graph\Generated\Models\MicrosoftAuthenticatorAuthenticationMethod;
+use Microsoft\Graph\Generated\Models\SoftwareOathAuthenticationMethod;
 
 class LogProcessor {
     private PDO $db;
     private GraphHelper $graphHelper;
     private Geolocation $geolocation;
     private array $ipWhitelist = [];
+    private array $usersProcessedForDeviceCheck = []; // Prevents checking the same user multiple times per run
 
     public function __construct() {
         $this->db = Database::getInstance();
@@ -34,6 +38,7 @@ class LogProcessor {
         echo "Found " . count($signInLogs) . " logs to process.\n";
 
         $incidentsForEmail = [];
+        $this->usersProcessedForDeviceCheck = []; // Reset for each run
 
         $signInLogs = array_reverse($signInLogs);
 
@@ -43,27 +48,34 @@ class LogProcessor {
             if ($this->logExists($log->getId())) continue;
 
             $userPrincipalName = $log->getUserPrincipalName();
+            $userId = $log->getUserId();
             echo "Processing log for: " . $userPrincipalName . "\n";
+
+            if (!in_array($userId, $this->usersProcessedForDeviceCheck)) {
+                echo "  Checking auth devices for user: $userId\n";
+                $deviceChanges = $this->checkForDeviceChanges($userId, $userPrincipalName);
+                if (!empty($deviceChanges)) {
+                    $incidentsForEmail = array_merge($incidentsForEmail, $deviceChanges);
+                }
+                $this->usersProcessedForDeviceCheck[] = $userId;
+            }
 
             $geoInfo = $this->geolocation->getGeoInfo($ipAddress);
             $loginTime = $log->getCreatedDateTime();
             $loginTime->setTimezone(new DateTimeZone('UTC'));
-
             $status = $log->getStatus();
             $loginWasSuccessful = ($status !== null && $status->getErrorCode() === 0);
             $loginStatusMessage = $loginWasSuccessful ? 'Success' : ('Failure: ' . ($status ? $status->getFailureReason() : 'Unknown'));
 
             $currentLogData = [
-                'entra_log_id' => $log->getId(), 'user_id' => $log->getUserId(),
-                'user_principal_name' => $userPrincipalName, 'ip_address' => $ipAddress,
-                'login_time' => $loginTime->format('Y-m-d H:i:s'), 'status' => $loginStatusMessage,
+                'entra_log_id' => $log->getId(), 'user_id' => $userId, 'user_principal_name' => $userPrincipalName,
+                'ip_address' => $ipAddress, 'login_time' => $loginTime->format('Y-m-d H:i:s'), 'status' => $loginStatusMessage,
                 'country' => $geoInfo['country'] ?? null, 'region' => $geoInfo['regionName'] ?? $geoInfo['region'] ?? null,
                 'city' => $geoInfo['city'] ?? null, 'lat' => $geoInfo['lat'] ?? null, 'lon' => $geoInfo['lon'] ?? null,
-                'is_impossible_travel' => false, 'is_region_change' => false,
-                'travel_speed_kph' => null, 'previous_log_id' => null
+                'is_impossible_travel' => false, 'is_region_change' => false, 'travel_speed_kph' => null, 'previous_log_id' => null
             ];
             
-            $previousLogins = $this->getPreviousLoginsInLast24Hours($log->getUserId(), $currentLogData['login_time']);
+            $previousLogins = $this->getPreviousLoginsInLast24Hours($userId, $currentLogData['login_time']);
 
             $isImpossibleTravel = false;
             $isRegionChangeForUi = false;
@@ -113,13 +125,17 @@ class LogProcessor {
 
             if ($isImpossibleTravel) {
                 $previousLoginWasSuccessful = ($fastestPreviousLog['status'] === 'Success');
-                if ($loginWasSuccessful && $previousLoginWasSuccessful && !$this->isIpWhitelisted($ipAddress)) {
+                $isWhitelisted = $this->isIpWhitelisted($currentLogData['ip_address']) || $this->isIpWhitelisted($fastestPreviousLog['ip_address']);
+                if ($loginWasSuccessful && $previousLoginWasSuccessful && !$isWhitelisted) {
                     $incidentsForEmail[] = ['type' => 'impossible_travel', 'current_log' => $currentLogData, 'previous_log' => $fastestPreviousLog, 'speed' => $maxSpeedKph];
                 }
                 echo "IMPOSSIBLE TRAVEL DETECTED for " . $currentLogData['user_principal_name'] . "\n";
             }
-            if ($shouldEmailForRegionChange && !$this->isIpWhitelisted($ipAddress)) {
-                 $incidentsForEmail[] = ['type' => 'region_change', 'current_log' => $currentLogData, 'previous_log' => $regionChangePreviousLogForUi];
+            if ($shouldEmailForRegionChange) {
+                $isWhitelisted = $this->isIpWhitelisted($currentLogData['ip_address']) || $this->isIpWhitelisted($regionChangePreviousLogForUi['ip_address']);
+                if (!$isWhitelisted) {
+                     $incidentsForEmail[] = ['type' => 'region_change', 'current_log' => $currentLogData, 'previous_log' => $regionChangePreviousLogForUi];
+                }
             }
             if ($isRegionChangeForUi) {
                 echo "REGION CHANGE DETECTED for " . $currentLogData['user_principal_name'] . "\n";
@@ -135,6 +151,98 @@ class LogProcessor {
         $this->pruneOldLogs();
     }
 
+    private function checkForDeviceChanges(string $userId, string $userPrincipalName): array {
+        $newIncidents = [];
+        $currentMethodsRaw = $this->graphHelper->getAuthMethodsForUser($userId);
+        $knownMethods = $this->getKnownDevicesForUser($userId);
+
+        $currentMethods = [];
+        foreach ($currentMethodsRaw as $method) {
+            $displayName = null; // Flag for valid MFA types
+            $type = null;
+            $deviceId = $method->getId();
+
+            if ($method instanceof MicrosoftAuthenticatorAuthenticationMethod) {
+                $displayName = $method->getDevice() ? ($method->getDevice()->getDisplayName() ?? 'Authenticator App') : 'Authenticator App (No Device Name)';
+                $type = 'Microsoft Authenticator';
+            } elseif ($method instanceof Fido2AuthenticationMethod) {
+                $displayName = $method->getDisplayName() ?? 'Security Key';
+                $type = 'FIDO2 Security Key';
+            } elseif ($method instanceof SoftwareOathAuthenticationMethod) {
+                $displayName = 'Third-Party Authenticator';
+                $type = 'Software OATH Token';
+            }
+            
+            if ($displayName !== null) {
+                 $currentMethods[$deviceId] = ['displayName' => $displayName, 'type' => $type];
+            }
+        }
+
+        $currentIds = array_keys($currentMethods);
+        $knownIds = array_keys($knownMethods);
+
+        $addedIds = array_diff($currentIds, $knownIds);
+        $removedIds = array_diff($knownIds, $currentIds);
+
+        foreach ($addedIds as $id) {
+            $device = $currentMethods[$id];
+            $this->logDeviceChange($userId, $userPrincipalName, $device['displayName'], 'Added');
+            $newIncidents[] = ['type' => 'auth_device_change', 'change' => 'Added', 'user' => $userPrincipalName, 'device' => $device['displayName']];
+            echo "  [ALERT] New MFA device added for $userPrincipalName: " . $device['displayName'] . "\n";
+        }
+
+        foreach ($removedIds as $id) {
+            $device = $knownMethods[$id];
+            $this->logDeviceChange($userId, $userPrincipalName, $device['display_name'], 'Removed');
+            $newIncidents[] = ['type' => 'auth_device_change', 'change' => 'Removed', 'user' => $userPrincipalName, 'device' => $device['display_name']];
+            echo "  [ALERT] MFA device removed for $userPrincipalName: " . $device['display_name'] . "\n";
+        }
+
+        if (!empty($addedIds) || !empty($removedIds)) {
+            $this->updateKnownDevicesForUser($userId, $currentMethodsRaw);
+        }
+        
+        return $newIncidents;
+    }
+
+    private function getKnownDevicesForUser(string $userId): array {
+        $stmt = $this->db->prepare("SELECT device_id, display_name FROM user_auth_devices WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(\PDO::FETCH_KEY_PAIR);
+    }
+
+    private function logDeviceChange(string $userId, string $userPrincipalName, string $displayName, string $changeType): void {
+        $stmt = $this->db->prepare("INSERT INTO auth_device_changes (user_id, user_principal_name, device_display_name, change_type) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$userId, $userPrincipalName, $displayName, $changeType]);
+    }
+    
+    private function updateKnownDevicesForUser(string $userId, array $methods): void {
+        $this->db->prepare("DELETE FROM user_auth_devices WHERE user_id = ?")->execute([$userId]);
+        $stmt = $this->db->prepare("INSERT IGNORE INTO user_auth_devices (user_id, device_id, display_name, device_type) VALUES (?, ?, ?, ?)");
+        
+        foreach ($methods as $method) {
+            $displayName = null; // Flag for valid MFA types
+            $type = null;
+            $deviceId = $method->getId();
+
+            // --- THIS IS THE UPDATED LOGIC ---
+            if ($method instanceof MicrosoftAuthenticatorAuthenticationMethod) {
+                $displayName = $method->getDevice() ? ($method->getDevice()->getDisplayName() ?? 'Authenticator App') : 'Authenticator App (No Device Name)';
+                $type = 'Microsoft Authenticator';
+            } elseif ($method instanceof Fido2AuthenticationMethod) {
+                $displayName = $method->getDisplayName() ?? 'Security Key';
+                $type = 'FIDO2 Security Key';
+            } elseif ($method instanceof SoftwareOathAuthenticationMethod) {
+                $displayName = 'Third-Party Authenticator';
+                $type = 'Software OATH Token';
+            }
+            
+            if ($displayName !== null) {
+                $stmt->execute([$userId, $deviceId, $displayName, $type]);
+            }
+        }
+    }
+    
     private function logExists(string $entraLogId): bool {
         $stmt = $this->db->prepare("SELECT 1 FROM login_logs WHERE entra_log_id = :id");
         $stmt->execute(['id' => $entraLogId]);
