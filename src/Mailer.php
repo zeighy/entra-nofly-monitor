@@ -6,6 +6,11 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 class Mailer {
+    /**
+     * Sends a single consolidated email and logs the alert to the database.
+     * @param array $incidents
+     * @param PDO $db The database connection
+     */
     public static function sendConsolidatedAlert(array $incidents, PDO $db): void {
         if (empty($incidents)) {
             return;
