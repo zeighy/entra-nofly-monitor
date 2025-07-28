@@ -236,7 +236,19 @@ if ($auth->check()) {
                         <h4>Email Notifications</h4>
                         <p>A single, consolidated email is sent at the end of each script run, summarizing all new incidents that meet the criteria for an email alert. The 'Email Sent' column in the alert tables on this page indicates if a specific alert was included in a digest and when it was sent.</p>
                         <h4>IP Whitelist</h4>
-                        <p>You can add trusted IP addresses (like a corporate VPN or main office) to the whitelist. Any alert where either the "from" or "to" IP is whitelisted will still be logged for review in the UI, but it will be suppressed from the email alert digest to reduce noise.</p>
+                        <p>You can add trusted IP addresses to the whitelist. Any alert originating from a whitelisted IP will still be logged for review in the UI, but it will be suppressed from the email alert digest to reduce noise.</p>
+                        <strong>When should an IP be whitelisted?</strong>
+                        <ul>
+                            <li>Known static IPs for corporate offices, data centers, or remote servers.</li>
+                            <li>Shared office spaces where internet traffic is centrally routed through a single public IP.</li>
+                            <li>Company-managed VPN servers with a static egress IP address.</li>
+                        </ul>
+                        <strong>When should an IP NOT be whitelisted?</strong>
+                        <ul>
+                            <li>Publicly available VPN services (paid or free), as these IPs are shared and not trusted.</li>
+                            <li>Office locations that use dynamic IP addresses that change frequently.</li>
+                            <li>Any IP address that you do not fully control or trust.</li>
+                        </ul>
                     </div>
                 </details>
 
