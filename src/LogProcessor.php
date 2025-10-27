@@ -127,18 +127,31 @@ class LogProcessor {
                 $previousLoginWasSuccessful = ($fastestPreviousLog['status'] === 'Success');
                 $isWhitelisted = $this->isIpWhitelisted($currentLogData['ip_address']) || $this->isIpWhitelisted($fastestPreviousLog['ip_address']);
                 if ($loginWasSuccessful && $previousLoginWasSuccessful && !$isWhitelisted) {
-                    $incidentsForEmail[] = ['type' => 'impossible_travel', 'current_log' => $currentLogData, 'previous_log' => $fastestPreviousLog, 'speed' => $maxSpeedKph];
+                    $incident = ['type' => 'impossible_travel', 'current_log' => $currentLogData, 'previous_log' => $fastestPreviousLog, 'speed' => $maxSpeedKph];
+                    $incidentsForEmail[] = $incident;
+                    Mailer::sendUserAlert($userPrincipalName, 'impossible_travel', $incident, $this->db);
                 }
                 echo "IMPOSSIBLE TRAVEL DETECTED for " . $currentLogData['user_principal_name'] . "\n";
             }
             if ($shouldEmailForRegionChange) {
                 $isWhitelisted = $this->isIpWhitelisted($currentLogData['ip_address']) || $this->isIpWhitelisted($regionChangePreviousLogForUi['ip_address']);
                 if (!$isWhitelisted) {
-                     $incidentsForEmail[] = ['type' => 'region_change', 'current_log' => $currentLogData, 'previous_log' => $regionChangePreviousLogForUi];
+                     $incident = ['type' => 'region_change', 'current_log' => $currentLogData, 'previous_log' => $regionChangePreviousLogForUi];
+                     $incidentsForEmail[] = $incident;
+                     Mailer::sendUserAlert($userPrincipalName, 'region_change', $incident, $this->db);
                 }
             }
             if ($isRegionChangeForUi) {
                 echo "REGION CHANGE DETECTED for " . $currentLogData['user_principal_name'] . "\n";
+            }
+
+            if (!$loginWasSuccessful && str_contains($loginStatusMessage, 'The account is locked')) {
+                $isWhitelisted = $this->isIpWhitelisted($currentLogData['ip_address']);
+                if (!$isWhitelisted) {
+                    $incident = ['type' => 'account_locked', 'current_log' => $currentLogData];
+                    Mailer::sendUserAlert($userPrincipalName, 'account_locked', $incident, $this->db);
+                    echo "ACCOUNT LOCKED DETECTED for " . $currentLogData['user_principal_name'] . "\n";
+                }
             }
         }
         
@@ -186,15 +199,19 @@ class LogProcessor {
 
         foreach ($addedIds as $id) {
             $device = $currentMethods[$id];
-            $this->logDeviceChange($userId, $userPrincipalName, $device['displayName'], 'Added');
-            $newIncidents[] = ['type' => 'auth_device_change', 'change' => 'Added', 'user' => $userPrincipalName, 'device' => $device['displayName']];
+            $logId = $this->logDeviceChange($userId, $userPrincipalName, $device['displayName'], 'Added');
+            $incident = ['type' => 'auth_device_change', 'change' => 'Added', 'user' => $userPrincipalName, 'device' => $device['displayName'], 'log_id' => $logId];
+            $newIncidents[] = $incident;
+            Mailer::sendUserAlert($userPrincipalName, 'auth_device_change', $incident, $this->db);
             echo "  [ALERT] New MFA device added for $userPrincipalName: " . $device['displayName'] . "\n";
         }
 
         foreach ($removedIds as $id) {
             $device = $knownMethods[$id];
-            $this->logDeviceChange($userId, $userPrincipalName, $device['displayName'], 'Removed');
-            $newIncidents[] = ['type' => 'auth_device_change', 'change' => 'Removed', 'user' => $userPrincipalName, 'device' => $device['displayName']];
+            $logId = $this->logDeviceChange($userId, $userPrincipalName, $device['displayName'], 'Removed');
+            $incident = ['type' => 'auth_device_change', 'change' => 'Removed', 'user' => $userPrincipalName, 'device' => $device['displayName'], 'log_id' => $logId];
+            $newIncidents[] = $incident;
+            Mailer::sendUserAlert($userPrincipalName, 'auth_device_change', $incident, $this->db);
             echo "  [ALERT] MFA device removed for $userPrincipalName: " . $device['displayName'] . "\n";
         }
 
@@ -219,9 +236,10 @@ class LogProcessor {
         return $devices;
     }
 
-    private function logDeviceChange(string $userId, string $userPrincipalName, string $displayName, string $changeType): void {
+    private function logDeviceChange(string $userId, string $userPrincipalName, string $displayName, string $changeType): int {
         $stmt = $this->db->prepare("INSERT INTO auth_device_changes (user_id, user_principal_name, device_display_name, change_type) VALUES (?, ?, ?, ?)");
         $stmt->execute([$userId, $userPrincipalName, $displayName, $changeType]);
+        return (int)$this->db->lastInsertId();
     }
     
     private function updateKnownDevicesForUser(string $userId, array $methods): void {
