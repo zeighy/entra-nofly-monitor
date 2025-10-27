@@ -193,9 +193,9 @@ class LogProcessor {
 
         foreach ($removedIds as $id) {
             $device = $knownMethods[$id];
-            $this->logDeviceChange($userId, $userPrincipalName, $device['display_name'], 'Removed');
-            $newIncidents[] = ['type' => 'auth_device_change', 'change' => 'Removed', 'user' => $userPrincipalName, 'device' => $device['display_name']];
-            echo "  [ALERT] MFA device removed for $userPrincipalName: " . $device['display_name'] . "\n";
+            $this->logDeviceChange($userId, $userPrincipalName, $device['displayName'], 'Removed');
+            $newIncidents[] = ['type' => 'auth_device_change', 'change' => 'Removed', 'user' => $userPrincipalName, 'device' => $device['displayName']];
+            echo "  [ALERT] MFA device removed for $userPrincipalName: " . $device['displayName'] . "\n";
         }
 
         if (!empty($addedIds) || !empty($removedIds)) {
@@ -206,9 +206,17 @@ class LogProcessor {
     }
 
     private function getKnownDevicesForUser(string $userId): array {
-        $stmt = $this->db->prepare("SELECT device_id, display_name FROM user_auth_devices WHERE user_id = ?");
+        $stmt = $this->db->prepare("SELECT device_id, display_name, device_type FROM user_auth_devices WHERE user_id = ?");
         $stmt->execute([$userId]);
-        return $stmt->fetchAll(\PDO::FETCH_KEY_PAIR);
+        $results = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        $devices = [];
+        foreach ($results as $row) {
+            $devices[$row['device_id']] = [
+                'displayName' => $row['display_name'],
+                'type' => $row['device_type']
+            ];
+        }
+        return $devices;
     }
 
     private function logDeviceChange(string $userId, string $userPrincipalName, string $displayName, string $changeType): void {
