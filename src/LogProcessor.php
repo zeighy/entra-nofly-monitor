@@ -228,10 +228,12 @@ class LogProcessor {
         $results = $stmt->fetchAll(\PDO::FETCH_ASSOC);
         $devices = [];
         foreach ($results as $row) {
-            $devices[$row['device_id']] = [
-                'displayName' => $row['display_name'],
-                'type' => $row['device_type']
-            ];
+            if (is_array($row) && isset($row['device_id'], $row['display_name'], $row['device_type'])) {
+                $devices[$row['device_id']] = [
+                    'displayName' => $row['display_name'],
+                    'type' => $row['device_type']
+                ];
+            }
         }
         return $devices;
     }

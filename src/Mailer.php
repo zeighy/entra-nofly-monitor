@@ -135,9 +135,20 @@ class Mailer {
     }
 
     public static function sendUserAlert(string $userEmail, string $alertType, array $incidentData, PDO $db): void {
+        // Global switch to disable all user alerts
+        if ($_ENV['DISABLE_ALL_USER_ALERTS'] ?? false) {
+            return;
+        }
+
         if (empty($userEmail) || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
             error_log("Invalid user email provided for alert: $userEmail");
             return;
+        }
+
+        // Check if user alerts are disabled for this email address
+        $disabledUsers = $_ENV['DISABLED_USER_ALERTS'] ?? [];
+        if (in_array($userEmail, $disabledUsers)) {
+            return; // Do not send email
         }
 
         $mail = new PHPMailer(true);
