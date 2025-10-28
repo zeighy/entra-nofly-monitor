@@ -37,4 +37,13 @@ return [
     'SMTP_FROM_NAME' => 'Entra Security Alerts',
     'ADMIN_ALERT_EMAIL' => 'admin@yourdomain.com', // The main "To" recipient
     'MAILER_CC_RECIPIENTS' => 'recipient1@example.com,recipient2@example.com,recipient3@example.com',
+
+    // --- User Alert Customization ---
+    // Set to true to disable all individual user security alerts.
+    'DISABLE_ALL_USER_ALERTS' => false,
+
+    // A list of user principal names (emails) who should NOT receive individual security alerts.
+    // Admin consolidated alerts are not affected by this setting.
+    // Example: 'user1@yourdomain.com', 'user2@yourdomain.com'
+    'DISABLED_USER_ALERTS' => [],
 ];
