@@ -25,7 +25,9 @@ if (!file_exists($secretsFile)) {
 $secrets = require $secretsFile;
 foreach ($secrets as $key => $value) {
     $_ENV[$key] = $value;
-    putenv("$key=$value");
+    if (!is_array($value)) {
+        putenv("$key=$value");
+    }
 }
 
 use App\Auth;
