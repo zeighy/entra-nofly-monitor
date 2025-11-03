@@ -168,21 +168,23 @@ class Mailer {
             $subject = '';
             $body = '';
 
-            $locationDisclaimer = "<br><p><small><strong>Note on Location Accuracy:</strong> The location is determined based on the IP address of the successful login as recorded by Microsoft and may not be perfectly accurate. Connecting or disconnecting from a VPN can also trigger these alerts. As long as you are aware of this recent login, no further action is required. If you do not recognize this login or a recently added authentication device, please contact IT Support immediately to have your account checked and credentials updated.</small></p>";
+            $locationDisclaimer = "<br><p><small><strong>Note on Location Accuracy:</strong> The location is determined based on the IP address of the successful login as recorded by Microsoft and may not be perfectly accurate. Connecting or disconnecting from a VPN service can also trigger these alerts. <b>As long as you are aware of this recent login, no further action is required.</b></small></p>";
 
             switch ($alertType) {
                 case 'impossible_travel':
-                    $subject = 'Security Alert: Impossible Travel Detected on Your Account';
+                    $subject = 'Security Alert: Irregular Travel Speed Detected on Your Account';
                     $currentLog = $incidentData['current_log'];
                     $previousLog = $incidentData['previous_log'];
-                    $body = "<h2>Security Alert: Impossible Travel Detected</h2>";
-                    $body .= "<p>We have detected a login to your account from a location that is considered impossible to reach in the time elapsed since your last login.</p>";
+                    $body = "<h2>Security Alert: Irregular Travel Detected</h2>";
+                    $body .= "<p>We have detected a login to your account from a location that is considered impossible or irregular to reach in the time elapsed when compared to other logins in the last 24 hours.</p>";
                     $body .= "<h4>Previous Login:</h4>";
                     $body .= "<p><strong>Time:</strong> " . $previousLog['login_time'] . " UTC<br><strong>Location:</strong> " . htmlspecialchars(($previousLog['city'] ?? 'N/A') . ', ' . ($previousLog['region'] ?? 'N/A') . ', ' . ($previousLog['country'] ?? 'N/A')) . "<br><strong>IP Address:</strong> " . htmlspecialchars($previousLog['ip_address']) . "</p>";
                     $body .= "<h4>Anomalous Login:</h4>";
                     $body .= "<p><strong>Time:</strong> " . $currentLog['login_time'] . " UTC<br><strong>Location:</strong> " . htmlspecialchars(($currentLog['city'] ?? 'N/A') . ', ' . ($currentLog['region'] ?? 'N/A') . ', ' . ($currentLog['country'] ?? 'N/A')) . "<br><strong>IP Address:</strong> " . htmlspecialchars($currentLog['ip_address']) . "</p>";
-                    $body .= "<p>If this was not you, please contact your IT administrator immediately.</p>";
+                    $body .= "<p>If this was not you or do not recognize this location change, please contact your IT support immediately.</p>";
                     $body .= $locationDisclaimer;
+                    $body .= "---"
+                    $body .= "<p><i><b>Note:</b> A single recent sign-in may generate multiple detections if it is anomalous when compared against several different logins from the past 24 hours.</i></p>";
                     $logStmt = $db->prepare("INSERT INTO email_alerts (alert_log_id, compared_log_id, alert_type) VALUES (?, ?, ?)");
                     $logStmt->execute([$currentLog['id'], $previousLog['id'], 'user_impossible_travel']);
                     break;
@@ -192,25 +194,27 @@ class Mailer {
                     $currentLog = $incidentData['current_log'];
                     $previousLog = $incidentData['previous_log'];
                     $body = "<h2>Security Alert: Sign-in from New Region</h2>";
-                    $body .= "<p>We have detected a login to your account from a different region than your usual activity.</p>";
+                    $body .= "<p>We have detected a login to your account from a different region than your usual activity from the last 24 hours.</p>";
                     $body .= "<h4>Previous Login Location:</h4>";
                     $body .= "<p><strong>Location:</strong> " . htmlspecialchars(($previousLog['region'] ?? 'N/A') . ', ' . ($previousLog['country'] ?? 'N/A')) . "</p>";
                     $body .= "<h4>New Login Location:</h4>";
                     $body .= "<p><strong>Time:</strong> " . $currentLog['login_time'] . " UTC<br><strong>Location:</strong> " . htmlspecialchars(($currentLog['region'] ?? 'N/A') . ', ' . ($currentLog['country'] ?? 'N/A')) . "<br><strong>IP Address:</strong> " . htmlspecialchars($currentLog['ip_address']) . "</p>";
-                    $body .= "<p>If this was not you, please contact your IT administrator immediately.</p>";
+                    $body .= "<p>If this was not you or do not recognize this location change, please contact your IT support immediately.</p>";
                     $body .= $locationDisclaimer;
+                    $body .= "---"
+                    $body .= "<p><i><b>Note:</b> A single recent sign-in may generate multiple detections if it is anomalous when compared against several different logins from the past 24 hours.</i></p>";
                     $logStmt = $db->prepare("INSERT INTO email_alerts (alert_log_id, compared_log_id, alert_type) VALUES (?, ?, ?)");
                     $logStmt->execute([$currentLog['id'], $previousLog['id'], 'user_region_change']);
                     break;
 
                 case 'auth_device_change':
-                    $subject = 'Security Alert: Authentication Method Changed on Your Account';
+                    $subject = 'Security Alert: Authentication Device Changed on Your Account';
                     $change = $incidentData['change'];
                     $device = $incidentData['device'];
-                    $body = "<h2>Security Alert: Authentication Method Change</h2>";
+                    $body = "<h2>Security Alert: Authentication Device Change</h2>";
                     $body .= "<p>An authentication method was recently <strong>" . strtolower($change) . "</strong> for your account.</p>";
                     $body .= "<p><strong>Device/Method:</strong> " . htmlspecialchars($device) . "</p>";
-                    $body .= "<p>If you did not make this change, please contact your IT administrator immediately.</p>";
+                    $body .= "<p>If this was not you or do not recognize this device change, please contact your IT support immediately.<br/>Note that selecting remember sign-in or trust device/browser may trigger a new added device on your account which also are automatically removed after a few days.</p>";
                     $logStmt = $db->prepare("INSERT INTO email_alerts (alert_log_id, compared_log_id, alert_type) VALUES (?, ?, ?)");
                     $logStmt->execute([0, 0, 'user_auth_device_change']);
                     break;
