@@ -145,14 +145,6 @@ class LogProcessor {
                 echo "REGION CHANGE DETECTED for " . $currentLogData['user_principal_name'] . "\n";
             }
 
-            if (!$loginWasSuccessful && str_contains($loginStatusMessage, 'The account is locked')) {
-                $isWhitelisted = $this->isIpWhitelisted($currentLogData['ip_address']);
-                if (!$isWhitelisted) {
-                    $incident = ['type' => 'account_locked', 'current_log' => $currentLogData];
-                    Mailer::sendUserAlert($userPrincipalName, 'account_locked', $incident, $this->db);
-                    echo "ACCOUNT LOCKED DETECTED for " . $currentLogData['user_principal_name'] . "\n";
-                }
-            }
         }
         
         if (!empty($incidentsForEmail)) {

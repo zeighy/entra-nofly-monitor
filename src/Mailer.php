@@ -168,6 +168,8 @@ class Mailer {
             $subject = '';
             $body = '';
 
+            $locationDisclaimer = "<br><p><small><strong>Note on Location Accuracy:</strong> The location is determined based on the IP address of the successful login as recorded by Microsoft and may not be perfectly accurate. Connecting or disconnecting from a VPN can also trigger these alerts. As long as you are aware of this recent login, no further action is required. If you do not recognize this login or a recently added authentication device, please contact IT Support immediately to have your account checked and credentials updated.</small></p>";
+
             switch ($alertType) {
                 case 'impossible_travel':
                     $subject = 'Security Alert: Impossible Travel Detected on Your Account';
@@ -180,6 +182,7 @@ class Mailer {
                     $body .= "<h4>Anomalous Login:</h4>";
                     $body .= "<p><strong>Time:</strong> " . $currentLog['login_time'] . " UTC<br><strong>Location:</strong> " . htmlspecialchars(($currentLog['city'] ?? 'N/A') . ', ' . ($currentLog['region'] ?? 'N/A') . ', ' . ($currentLog['country'] ?? 'N/A')) . "<br><strong>IP Address:</strong> " . htmlspecialchars($currentLog['ip_address']) . "</p>";
                     $body .= "<p>If this was not you, please contact your IT administrator immediately.</p>";
+                    $body .= $locationDisclaimer;
                     $logStmt = $db->prepare("INSERT INTO email_alerts (alert_log_id, compared_log_id, alert_type) VALUES (?, ?, ?)");
                     $logStmt->execute([$currentLog['id'], $previousLog['id'], 'user_impossible_travel']);
                     break;
@@ -195,6 +198,7 @@ class Mailer {
                     $body .= "<h4>New Login Location:</h4>";
                     $body .= "<p><strong>Time:</strong> " . $currentLog['login_time'] . " UTC<br><strong>Location:</strong> " . htmlspecialchars(($currentLog['region'] ?? 'N/A') . ', ' . ($currentLog['country'] ?? 'N/A')) . "<br><strong>IP Address:</strong> " . htmlspecialchars($currentLog['ip_address']) . "</p>";
                     $body .= "<p>If this was not you, please contact your IT administrator immediately.</p>";
+                    $body .= $locationDisclaimer;
                     $logStmt = $db->prepare("INSERT INTO email_alerts (alert_log_id, compared_log_id, alert_type) VALUES (?, ?, ?)");
                     $logStmt->execute([$currentLog['id'], $previousLog['id'], 'user_region_change']);
                     break;
@@ -209,17 +213,6 @@ class Mailer {
                     $body .= "<p>If you did not make this change, please contact your IT administrator immediately.</p>";
                     $logStmt = $db->prepare("INSERT INTO email_alerts (alert_log_id, compared_log_id, alert_type) VALUES (?, ?, ?)");
                     $logStmt->execute([0, 0, 'user_auth_device_change']);
-                    break;
-
-                case 'account_locked':
-                    $subject = 'Security Alert: Your Account Has Been Locked';
-                    $log = $incidentData['current_log'];
-                    $body = "<h2>Security Alert: Account Locked</h2>";
-                    $body .= "<p>Your account has been locked due to multiple failed sign-in attempts.</p>";
-                    $body .= "<p><strong>Time of last attempt:</strong> " . $log['login_time'] . " UTC<br><strong>IP Address:</strong> " . htmlspecialchars($log['ip_address']) . "</p>";
-                    $body .= "<p>Please contact your IT administrator to unlock your account.</p>";
-                    $logStmt = $db->prepare("INSERT INTO email_alerts (alert_log_id, compared_log_id, alert_type) VALUES (?, ?, ?)");
-                    $logStmt->execute([$log['id'], 0, 'user_account_locked']);
                     break;
             }
 
