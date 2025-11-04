@@ -183,7 +183,7 @@ class Mailer {
                     $body .= "<p><strong>Time:</strong> " . $currentLog['login_time'] . " UTC<br><strong>Location:</strong> " . htmlspecialchars(($currentLog['city'] ?? 'N/A') . ', ' . ($currentLog['region'] ?? 'N/A') . ', ' . ($currentLog['country'] ?? 'N/A')) . "<br><strong>IP Address:</strong> " . htmlspecialchars($currentLog['ip_address']) . "</p>";
                     $body .= "<p>If this was not you or do not recognize this location change, please contact your IT support immediately.</p>";
                     $body .= $locationDisclaimer;
-                    $body .= "---"
+                    $body .= "---";
                     $body .= "<p><i><b>Note:</b> A single recent sign-in may generate multiple detections if it is anomalous when compared against several different logins from the past 24 hours.</i></p>";
                     $logStmt = $db->prepare("INSERT INTO email_alerts (alert_log_id, compared_log_id, alert_type) VALUES (?, ?, ?)");
                     $logStmt->execute([$currentLog['id'], $previousLog['id'], 'user_impossible_travel']);
@@ -201,7 +201,7 @@ class Mailer {
                     $body .= "<p><strong>Time:</strong> " . $currentLog['login_time'] . " UTC<br><strong>Location:</strong> " . htmlspecialchars(($currentLog['region'] ?? 'N/A') . ', ' . ($currentLog['country'] ?? 'N/A')) . "<br><strong>IP Address:</strong> " . htmlspecialchars($currentLog['ip_address']) . "</p>";
                     $body .= "<p>If this was not you or do not recognize this location change, please contact your IT support immediately.</p>";
                     $body .= $locationDisclaimer;
-                    $body .= "---"
+                    $body .= "---";
                     $body .= "<p><i><b>Note:</b> A single recent sign-in may generate multiple detections if it is anomalous when compared against several different logins from the past 24 hours.</i></p>";
                     $logStmt = $db->prepare("INSERT INTO email_alerts (alert_log_id, compared_log_id, alert_type) VALUES (?, ?, ?)");
                     $logStmt->execute([$currentLog['id'], $previousLog['id'], 'user_region_change']);
