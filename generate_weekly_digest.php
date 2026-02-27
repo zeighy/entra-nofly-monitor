@@ -20,12 +20,6 @@ foreach ($secrets as $key => $value) {
 use App\Database;
 use App\Mailer;
 
-// Global flag check
-if (isset($_ENV['DISABLE_ALL_USER_ALERTS']) && $_ENV['DISABLE_ALL_USER_ALERTS'] === true) {
-    echo "Alerts are globally disabled via DISABLE_ALL_USER_ALERTS in secrets.php. Exiting.\n";
-    exit(0);
-}
-
 $db = Database::getInstance();
 $mailer = new Mailer();
 
@@ -49,12 +43,6 @@ if (empty($users)) {
 $digestData = [];
 
 foreach ($users as $upn) {
-    // Skip if user alerts are disabled
-    $disabledAlerts = $_ENV['DISABLED_USER_ALERTS'] ?? [];
-    if (in_array(strtolower($upn), array_map('strtolower', $disabledAlerts))) {
-        continue;
-    }
-
     $userData = [
         'upn' => $upn,
         'impossible_travel_count' => 0,
