@@ -94,11 +94,20 @@ foreach ($users as $upn) {
     $userData['prior_regions'] = $stmt->fetchAll(PDO::FETCH_COLUMN);
     $userData['prior_regions'] = array_filter($userData['prior_regions'], function($val) { return $val != ', '; });
 
-    // Only add to digest if there's *any* activity (detections or successful logins)
+    // Determine if there are any new regions
+    $hasNewRegions = false;
+    foreach (array_keys($userData['current_regions']) as $currentRegion) {
+        if (!in_array($currentRegion, $userData['prior_regions'])) {
+            $hasNewRegions = true;
+            break;
+        }
+    }
+
+    // Only add to digest if there are detections OR new regions
     if ($userData['impossible_travel_count'] > 0 || 
         $userData['region_change_count'] > 0 || 
         $userData['device_change_count'] > 0 || 
-        !empty($userData['current_regions'])) {
+        $hasNewRegions) {
         
         $digestData[] = $userData;
     }
