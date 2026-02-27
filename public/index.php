@@ -196,9 +196,7 @@ if ($auth->check()) {
             <h1>Entra Impossible Travel Monitor</h1>
             <?php if ($auth->check()): ?>
                 <div class="user-info">
-                    Welcome, <strong><?= htmlspecialchars($auth->getUsername()) ?></strong> | 
-                    <a href="/nofly-monitor/public/user_ip_report.php">User IP Report</a> | 
-                    <a href="<?= BASE_PATH ?>?logout=1">Logout</a>
+                    Welcome, <strong><?= htmlspecialchars($auth->getUsername()) ?></strong> | <a href="<?= BASE_PATH ?>?logout=1">Logout</a>
                 </div>
             <?php endif; ?>
         </header>
