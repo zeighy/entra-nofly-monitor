@@ -16,6 +16,8 @@ A standalone PHP application to monitor Microsoft Entra (Azure AD) sign-in logs 
 -   **IP Whitelisting**: A manageable list in the UI to add trusted IP addresses (like corporate VPNs or offices). Whitelisted IPs will still have their anomalies logged but will be suppressed from email alerts to reduce noise.
 -   **Consolidated Email Alerts**: Sends a single digest email per run, summarizing all detected incidents with a breakdown by type and user count to prevent inbox spam.
 -   **Web UI for Review**: A secure, login-protected dashboard to review all impossible travel alerts, region change alerts, and a filterable history of all recent sign-ins. It also indicates which specific alerts triggered an email notification.
+-   **User IP Report**: A dedicated web page to search for any user and review a list of all IP addresses they have successfully logged in from over the last 30 days.
+-   **Weekly Email Digest**: An independent script to generate a weekly consolidated summary showing every user's detection counts and successful login locations compared to the prior week.
 -   **Automated & Manual Processing**: Includes scripts for automated cron job execution, manual on-demand syncs, historical data reprocessing, and data cleanup.
 -   **Flexible Data Exports**: A consolidated dropdown menu in the UI allows for exporting alerts or sign-in logs from various timeframes (24 hours, 7 days, 30 days, or all time) to CSV.
 
@@ -130,6 +132,9 @@ server {
 ```bash
 # Run the Entra log sync every 10 minutes and log output to a timestamped file
 */10 * * * * /usr/bin/php /path/to/your/project/nofly-monitor/run_background_task.php >> /var/log/nofly-monitor/cron_$(date +\%Y\%m\%d-\%H\%M\%S).log 2>&1
+
+# Generate a weekly digest email of all user activity every Sunday at 8 AM
+0 8 * * 0 /usr/bin/php /path/to/your/project/nofly-monitor/generate_weekly_digest.php >> /var/log/nofly-monitor/weekly_digest.log 2>&1
 
 # Prune the cron log files older than 14 days, runs once a day at midnight
 0 0 * * * find /var/log/nofly-monitor/ -type f -name '*.log' -mtime +14 -delete
