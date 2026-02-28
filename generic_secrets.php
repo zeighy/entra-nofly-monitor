@@ -10,6 +10,13 @@ return [
     'DB_USERNAME' => 'your_database_user',
     'DB_PASSWORD' => 'your_database_password',
 
+    // --- Cloudflare Turnstile Configuration ---
+    // Use these test keys to test the integration without real credentials
+    // Site Key (Test): 1x00000000000000000000AA
+    // Secret Key (Test): 1x0000000000000000000000000000000AA
+    'TURNSTILE_SITE_KEY' => '1x00000000000000000000AA',
+    'TURNSTILE_SECRET_KEY' => '1x0000000000000000000000000000000AA',
+
     // --- Microsoft Graph API Configuration ---
     'AZURE_TENANT_ID' => 'your_tenant_id',
     'AZURE_CLIENT_ID' => 'your_client_id',
