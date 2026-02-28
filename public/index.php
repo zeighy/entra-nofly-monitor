@@ -229,13 +229,16 @@ if ($auth->check()) {
 <body>
     <div class="container">
         <header>
-            <h1>Entra Impossible Travel Monitor</h1>
+            <h1>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                Entra Impossible Travel Monitor
+            </h1>
             <?php if ($auth->check()): ?>
                 <div class="user-info">
                     Welcome, <strong><?= htmlspecialchars($auth->getUsername()) ?></strong> | 
-                    <a href="user_ip_report.php">User IP Report</a> | 
-                    <a href="failed_logins.php">Failed Logins Report</a> | 
-                    <a href="<?= BASE_PATH ?>?logout=1">Logout</a>
+                    <a href="user_ip_report.php" class="flex-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg> IP Report</a> | 
+                    <a href="failed_logins.php" class="flex-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> Failed Logins</a> | 
+                    <a href="<?= BASE_PATH ?>?logout=1" class="flex-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg> Logout</a>
                 </div>
             <?php endif; ?>
         </header>
@@ -294,16 +297,16 @@ if ($auth->check()) {
                 </details>
 
                 <section class="device-changes">
-                    <h2>Authentication Device Changes (Last 24 Hours)</h2>
+                    <h2><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"></path></svg> Authentication Device Changes (Last 24 Hours)</h2>
                     <div class="table-wrapper">
                         <table>
-                            <thead><tr><th>User</th><th>Device</th><th>Change</th><th>Time</th></tr></thead>
+                            <thead><tr><th>User</th><th>Device</th><th>Change</th><th>Time (UTC)</th></tr></thead>
                             <tbody>
                                 <?php if($deviceChangeStmt): while ($row = $deviceChangeStmt->fetch()): ?>
                                 <tr class="device-change-row-<?= strtolower($row['change_type']) ?>">
-                                    <td><?= htmlspecialchars($row['user_principal_name']) ?></td>
-                                    <td><?= htmlspecialchars($row['device_display_name']) ?></td>
-                                    <td><?= htmlspecialchars($row['change_type']) ?></td>
+                                    <td class="highlight-upn"><?= htmlspecialchars($row['user_principal_name']) ?></td>
+                                    <td><strong><?= htmlspecialchars($row['device_display_name']) ?></strong></td>
+                                    <td><span style="font-weight: 700; color: <?= strtolower($row['change_type']) === 'added' ? '#16a34a' : '#dc2626' ?>;"><?= htmlspecialchars($row['change_type']) ?></span></td>
                                     <td><span class="utc-time" data-timestamp="<?= htmlspecialchars($row['change_time']) ?> UTC"><?= htmlspecialchars($row['change_time']) ?> UTC</span></td>
                                 </tr>
                                 <?php endwhile; if($deviceChangeStmt && $deviceChangeStmt->rowCount() === 0): ?>
@@ -315,7 +318,7 @@ if ($auth->check()) {
                 </section>
 
                 <section class="whitelist-manager">
-                    <h2>IP Whitelist Management</h2>
+                    <h2><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg> IP Whitelist Management</h2>
                     <form method="POST" action="<?= BASE_PATH ?>" class="whitelist-form">
                         <input type="text" name="ip_address" placeholder="Enter IP Address" required>
                         <input type="text" name="note" placeholder="Note (e.g., Corporate VPN)">
@@ -343,7 +346,7 @@ if ($auth->check()) {
                 </section>
 
                 <section class="alerts">
-                    <h2>Impossible Travel Alerts</h2>
+                    <h2><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg> Impossible Travel Alerts</h2>
                     <div class="table-wrapper">
                         <table>
                             <thead><tr><th>User</th><th>Status</th><th>Travel Details</th><th>Speed (km/h)</th><th>Email Sent</th></tr></thead>
@@ -359,16 +362,16 @@ if ($auth->check()) {
                                     $emailSent = $emailStmt->fetchColumn();
                                 ?>
                                 <tr class="alert-row">
-                                    <td><?= htmlspecialchars($row['user_principal_name']) ?></td>
-                                    <td class="<?= str_starts_with($row['status'], 'Failure') ? 'failure-text' : '' ?>"><?= htmlspecialchars($row['status']) ?></td>
+                                    <td class="highlight-upn"><?= htmlspecialchars($row['user_principal_name']) ?></td>
+                                    <td class="<?= str_starts_with($row['status'], 'Failure') ? 'failure-text' : '' ?>"><strong><?= htmlspecialchars($row['status']) ?></strong></td>
                                     <td class="travel-details">
                                         <?php if ($prevRow): ?>
-                                        <div><strong>From:</strong> <?= htmlspecialchars(($prevRow['city'] ?? 'N/A') . ', ' . ($prevRow['country'] ?? 'N/A')) ?><br><small>(<?= htmlspecialchars($prevRow['ip_address']) ?> at <span class="utc-time" data-timestamp="<?= htmlspecialchars($prevRow['login_time']) ?> UTC"><?= htmlspecialchars($prevRow['login_time']) ?> UTC</span>)</small></div>
+                                        <div><strong>FROM:</strong> <?= htmlspecialchars(($prevRow['city'] ?? 'N/A') . ', ' . ($prevRow['country'] ?? 'N/A')) ?><br><small><?= htmlspecialchars($prevRow['ip_address']) ?> | <span class="utc-time" data-timestamp="<?= htmlspecialchars($prevRow['login_time']) ?> UTC"><?= htmlspecialchars($prevRow['login_time']) ?> UTC</span></small></div>
                                         <?php endif; ?>
-                                        <div><strong>To:</strong> <?= htmlspecialchars(($row['city'] ?? 'N/A') . ', ' . ($row['country'] ?? 'N/A')) ?><br><small>(<?= htmlspecialchars($row['ip_address']) ?> at <span class="utc-time" data-timestamp="<?= htmlspecialchars($row['login_time']) ?> UTC"><?= htmlspecialchars($row['login_time']) ?> UTC</span>)</small></div>
+                                        <div><strong>TO:</strong> <?= htmlspecialchars(($row['city'] ?? 'N/A') . ', ' . ($row['country'] ?? 'N/A')) ?><br><small><?= htmlspecialchars($row['ip_address']) ?> | <span class="utc-time" data-timestamp="<?= htmlspecialchars($row['login_time']) ?> UTC"><?= htmlspecialchars($row['login_time']) ?> UTC</span></small></div>
                                     </td>
-                                    <td><?= round($row['travel_speed_kph']) ?></td>
-                                    <td class="email-status"><?= $emailSent ? 'Yes<br><small class="utc-time" data-timestamp="' . htmlspecialchars($emailSent) . ' UTC">' . htmlspecialchars($emailSent) . ' UTC</small>' : 'No' ?></td>
+                                    <td class="highlight-speed"><?= round($row['travel_speed_kph']) ?></td>
+                                    <td class="email-status"><?= $emailSent ? '<span class="email-status-yes">SENT</span><br><small class="utc-time" data-timestamp="' . htmlspecialchars($emailSent) . ' UTC">' . htmlspecialchars($emailSent) . ' UTC</small>' : '<span class="email-status-no">NO</span>' ?></td>
                                 </tr>
                                 <?php endwhile; if($alertsStmt && $alertsStmt->rowCount() === 0): ?>
                                     <tr><td colspan="5">No impossible travel alerts found.</td></tr>
@@ -379,7 +382,7 @@ if ($auth->check()) {
                 </section>
 
                 <section class="region-changes">
-                    <h2>Region Change Alerts</h2>
+                    <h2><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg> Region Change Alerts</h2>
                     <div class="table-wrapper">
                         <table>
                             <thead><tr><th>User</th><th>Status</th><th>Travel Details</th><th>Email Sent</th></tr></thead>
@@ -395,15 +398,15 @@ if ($auth->check()) {
                                     $emailSent = $emailStmt->fetchColumn();
                                 ?>
                                 <tr class="region-change-row">
-                                    <td><?= htmlspecialchars($row['user_principal_name']) ?></td>
-                                    <td class="<?= str_starts_with($row['status'], 'Failure') ? 'failure-text' : '' ?>"><?= htmlspecialchars($row['status']) ?></td>
+                                    <td class="highlight-upn"><?= htmlspecialchars($row['user_principal_name']) ?></td>
+                                    <td class="<?= str_starts_with($row['status'], 'Failure') ? 'failure-text' : '' ?>"><strong><?= htmlspecialchars($row['status']) ?></strong></td>
                                     <td class="travel-details">
                                         <?php if ($prevRow): ?>
-                                        <div><strong>From:</strong> <?= htmlspecialchars($prevRow['region'] ?? 'N/A') ?> (<?= htmlspecialchars($prevRow['country'] ?? 'N/A') ?>)<br><small>(<?= htmlspecialchars($prevRow['ip_address']) ?> at <span class="utc-time" data-timestamp="<?= htmlspecialchars($prevRow['login_time']) ?> UTC"><?= htmlspecialchars($prevRow['login_time']) ?> UTC</span>)</small></div>
+                                        <div><strong>FROM:</strong> <?= htmlspecialchars($prevRow['region'] ?? 'N/A') ?> (<?= htmlspecialchars($prevRow['country'] ?? 'N/A') ?>)<br><small><?= htmlspecialchars($prevRow['ip_address']) ?> | <span class="utc-time" data-timestamp="<?= htmlspecialchars($prevRow['login_time']) ?> UTC"><?= htmlspecialchars($prevRow['login_time']) ?> UTC</span></small></div>
                                         <?php endif; ?>
-                                        <div><strong>To:</strong> <?= htmlspecialchars($row['region'] ?? 'N/A') ?> (<?= htmlspecialchars($row['country'] ?? 'N/A') ?>)<br><small>(<?= htmlspecialchars($row['ip_address']) ?> at <span class="utc-time" data-timestamp="<?= htmlspecialchars($row['login_time']) ?> UTC"><?= htmlspecialchars($row['login_time']) ?> UTC</span>)</small></div>
+                                        <div><strong>TO:</strong> <?= htmlspecialchars($row['region'] ?? 'N/A') ?> (<?= htmlspecialchars($row['country'] ?? 'N/A') ?>)<br><small><?= htmlspecialchars($row['ip_address']) ?> | <span class="utc-time" data-timestamp="<?= htmlspecialchars($row['login_time']) ?> UTC"><?= htmlspecialchars($row['login_time']) ?> UTC</span></small></div>
                                     </td>
-                                    <td class="email-status"><?= $emailSent ? 'Yes<br><small class="utc-time" data-timestamp="' . htmlspecialchars($emailSent) . ' UTC">' . htmlspecialchars($emailSent) . ' UTC</small>' : 'No' ?></td>
+                                    <td class="email-status"><?= $emailSent ? '<span class="email-status-yes">SENT</span><br><small class="utc-time" data-timestamp="' . htmlspecialchars($emailSent) . ' UTC">' . htmlspecialchars($emailSent) . ' UTC</small>' : '<span class="email-status-no">NO</span>' ?></td>
                                 </tr>
                                 <?php endwhile; if($regionChangeStmt && $regionChangeStmt->rowCount() === 0): ?>
                                     <tr><td colspan="4">No region change alerts found.</td></tr>
@@ -414,16 +417,16 @@ if ($auth->check()) {
                 </section>
 
                 <section class="logs">
-                    <h2>All Sign-in Logs (Last 24 Hours)</h2>
+                    <h2><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg> All Sign-in Logs (Last 24 Hours)</h2>
                     <div class="table-wrapper">
                          <table>
                             <thead><tr><th>User</th><th>Login Time</th><th>Status</th><th>IP Address</th><th>Location</th></tr></thead>
                             <tbody>
                                 <?php if($logsStmt): while ($row = $logsStmt->fetch()): ?>
                                 <tr class="<?= str_starts_with($row['status'], 'Failure') ? 'failure-row' : '' ?>">
-                                    <td><?= htmlspecialchars($row['user_principal_name']) ?></td>
+                                    <td class="highlight-upn"><?= htmlspecialchars($row['user_principal_name']) ?></td>
                                     <td><span class="utc-time" data-timestamp="<?= htmlspecialchars($row['login_time']) ?> UTC"><?= htmlspecialchars($row['login_time']) ?> UTC</span></td>
-                                    <td><?= htmlspecialchars($row['status']) ?></td>
+                                    <td class="<?= str_starts_with($row['status'], 'Failure') ? 'failure-text' : '' ?>"><?= htmlspecialchars($row['status']) ?></td>
                                     <td><?= htmlspecialchars($row['ip_address']) ?></td>
                                     <td><?= htmlspecialchars(($row['city'] ?? '') . ', ' . ($row['country'] ?? '')) ?></td>
                                 </tr>

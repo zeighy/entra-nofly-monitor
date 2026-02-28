@@ -80,59 +80,81 @@ if ($selectedUser) {
     <style>
         .search-form {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            align-items: center;
+            gap: 0;
+            margin-bottom: 2rem;
+            align-items: stretch;
+            max-width: 600px;
         }
         .search-form input[type="text"] {
-            padding: 8px;
-            width: 300px;
+            width: 100%;
+            border-right: none;
+        }
+        .search-form button {
+            white-space: nowrap;
         }
         .user-options-list {
             list-style: none;
             padding: 0;
-            margin-bottom: 30px;
+            margin-bottom: 2rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1rem;
         }
         .user-options-list li {
-            margin-bottom: 10px;
+            margin: 0;
         }
         .user-options-list a {
             text-decoration: none;
-            color: #007bff;
-            font-weight: bold;
+            color: var(--primary-color);
+            font-weight: 600;
+            display: block;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            background: #f8fafc;
+            transition: all 0.2s;
         }
         .user-options-list a:hover {
-            text-decoration: underline;
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
         }
         .report-section {
-            margin-top: 30px;
+            margin-top: 2rem;
+        }
+        @media (max-width: 768px) {
+            .search-form { flex-direction: column; }
+            .search-form input[type="text"] { border-right: 2px solid var(--border-color); border-bottom: none; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>User IP Report (Last 30 Days)</h1>
+            <h1>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                User IP Report (Last 30 Days)
+            </h1>
             <div class="user-info">
                 Welcome, <strong><?= htmlspecialchars($auth->getUsername()) ?></strong> | 
-                <a href="index.php">Back to Dashboard</a> | 
-                <a href="failed_logins.php">Failed Logins Report</a> | 
-                <a href="index.php?logout=1">Logout</a>
+                <a href="index.php" class="flex-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg> Dashboard</a> | 
+                <a href="failed_logins.php" class="flex-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> Failed Logins</a> | 
+                <a href="index.php?logout=1" class="flex-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg> Logout</a>
             </div>
         </header>
 
         <main>
             <section class="search-section">
-                <h2>Search for a User</h2>
+                <h2><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg> Search for a User</h2>
                 <form method="GET" action="<?= htmlspecialchars(BASE_PATH) ?>" class="search-form">
                     <input type="text" name="q" placeholder="Enter full or partial username (e.g., john)" value="<?= htmlspecialchars($searchQuery) ?>" required>
                     <button type="submit">Search</button>
                 </form>
 
                 <?php if ($searchQuery && empty($userOptions) && !$selectedUser): ?>
-                    <p>No users found matching "<?= htmlspecialchars($searchQuery) ?>".</p>
+                    <div class="error-message">No users found matching "<strong><?= htmlspecialchars($searchQuery) ?></strong>".</div>
                 <?php elseif ($searchQuery && !empty($userOptions) && !$selectedUser): ?>
-                    <h3>Select a user:</h3>
+                    <h3 style="color: var(--secondary-color); text-transform: uppercase; font-size: 0.9rem; margin-top: 2rem;">Select a user:</h3>
                     <ul class="user-options-list">
                         <?php foreach ($userOptions as $user): ?>
                             <li><a href="<?= htmlspecialchars(BASE_PATH) ?>?user=<?= urlencode($user) ?>"><?= htmlspecialchars($user) ?></a></li>
@@ -142,9 +164,12 @@ if ($selectedUser) {
             </section>
 
             <?php if ($selectedUser): ?>
-            <section class="report-section">
-                <h2>IP Addresses for: <?= htmlspecialchars($selectedUser) ?></h2>
-                <p>Showing activity for the last 30 days.</p>
+            <section class="report-section region-changes">
+                <h2><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg> IP Addresses for: <span class="highlight-upn"><?= htmlspecialchars($selectedUser) ?></span></h2>
+                <div class="info-message">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    Showing activity for the last 30 days.
+                </div>
                 
                 <div class="table-wrapper">
                     <table>
@@ -162,8 +187,8 @@ if ($selectedUser) {
                             <?php else: ?>
                                 <?php foreach ($ipReport as $row): ?>
                                     <tr>
-                                        <td><?= htmlspecialchars($row['ip_address']) ?></td>
-                                        <td><?= htmlspecialchars($row['occurrence_count']) ?></td>
+                                        <td><strong><?= htmlspecialchars($row['ip_address']) ?></strong></td>
+                                        <td><span style="font-weight: 700; color: var(--primary-color);"><?= htmlspecialchars($row['occurrence_count']) ?></span></td>
                                         <td><span class="utc-time" data-timestamp="<?= htmlspecialchars($row['last_seen']) ?> UTC"><?= htmlspecialchars($row['last_seen']) ?> UTC</span></td>
                                         <td><?= htmlspecialchars(($row['city'] ?? '') . ', ' . ($row['region'] ?? '') . ', ' . ($row['country'] ?? '')) ?></td>
                                     </tr>
