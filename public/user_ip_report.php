@@ -116,6 +116,7 @@ if ($selectedUser) {
             <div class="user-info">
                 Welcome, <strong><?= htmlspecialchars($auth->getUsername()) ?></strong> | 
                 <a href="index.php">Back to Dashboard</a> | 
+                <a href="failed_logins.php">Failed Logins Report</a> | 
                 <a href="index.php?logout=1">Logout</a>
             </div>
         </header>
