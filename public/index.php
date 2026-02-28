@@ -52,7 +52,40 @@ if (isset($_SESSION['info_message'])) {
 
 // --- Login and Action Logic ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
-    if ($auth->login($_POST['username'], $_POST['password'])) {
+    $turnstileResponse = $_POST['cf-turnstile-response'] ?? '';
+    $turnstileSecret = $_ENV['TURNSTILE_SECRET_KEY'] ?? '';
+    
+    // Skip verification if keys are completely missing from environment to avoid locking users out
+    // but if secret is there we should verify.
+    $captchaValid = false;
+    if (empty($turnstileSecret)) {
+        $captchaValid = true; // Fallback if no turnstile configured
+    } else {
+        if (!empty($turnstileResponse)) {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'https://challenges.cloudflare.com/turnstile/v0/siteverify');
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+                'secret' => $turnstileSecret,
+                'response' => $turnstileResponse,
+                'remoteip' => $_SERVER['REMOTE_ADDR'] ?? ''
+            ]));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            $response = curl_exec($ch);
+            curl_close($ch);
+            
+            if ($response) {
+                $result = json_decode($response, true);
+                if (isset($result['success']) && $result['success']) {
+                    $captchaValid = true;
+                }
+            }
+        }
+    }
+
+    if (!$captchaValid) {
+        $errorMessage = 'CAPTCHA validation failed. Please try again.';
+    } elseif ($auth->login($_POST['username'], $_POST['password'])) {
         header('Location: ' . BASE_PATH);
         exit;
     } else {
@@ -189,6 +222,9 @@ if ($auth->check()) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Entra Impossible Travel Monitor</title>
     <link rel="stylesheet" href="/nofly-monitor/public/style.css">
+    <?php if (!$auth->check()): ?>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <?php endif; ?>
 </head>
 <body>
     <div class="container">
@@ -405,6 +441,7 @@ if ($auth->check()) {
                     <?php endif; ?>
                     <div class="input-group"><label for="username">Username</label><input type="text" id="username" name="username" required></div>
                     <div class="input-group"><label for="password">Password</label><input type="password" id="password" name="password" required></div>
+                    <div class="cf-turnstile" data-sitekey="<?= htmlspecialchars($_ENV['TURNSTILE_SITE_KEY'] ?? '') ?>"></div>
                     <button type="submit" name="login">Sign In</button>
                 </form>
             </div>
