@@ -16,6 +16,7 @@ A standalone PHP application to monitor Microsoft Entra (Azure AD) sign-in logs 
 -   **IP Whitelisting**: A manageable list in the UI to add trusted IP addresses (like corporate VPNs or offices). Whitelisted IPs will still have their anomalies logged but will be suppressed from email alerts to reduce noise.
 -   **Consolidated Email Alerts**: Sends a single digest email per run, summarizing all detected incidents with a breakdown by type and user count to prevent inbox spam.
 -   **Web UI for Review**: A secure, login-protected dashboard to review all impossible travel alerts, region change alerts, and a filterable history of all recent sign-ins. It also indicates which specific alerts triggered an email notification.
+-   **Failed Logins Report**: A dedicated web page showing all users with failed logins in the last 7 days, along with comparisons to the prior 7 days and their successful login counts.
 -   **User IP Report**: A dedicated web page to search for any user and review a list of all IP addresses they have successfully logged in from over the last 30 days.
 -   **Weekly Email Digest**: An independent script to generate a weekly consolidated summary showing every user's detection counts and successful login locations compared to the prior week.
 -   **Automated & Manual Processing**: Includes scripts for automated cron job execution, manual on-demand syncs, historical data reprocessing, and data cleanup.
