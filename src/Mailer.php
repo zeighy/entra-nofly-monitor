@@ -228,4 +228,51 @@ class Mailer {
             error_log("User Mailer Error for $userEmail: {$mail->ErrorInfo}");
         }
     }
+
+    /**
+     * Sends a generic HTML email.
+     * 
+     * @param string $to Recipient email address
+     * @param string $subject Email subject
+     * @param string $htmlBody HTML content of the email
+     * @param array $ccRecipients Optional list of CC email addresses
+     */
+    public function sendHtmlEmail(string $to, string $subject, string $htmlBody, array $ccRecipients = []): void {
+        if (empty($to) || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            error_log("Invalid recipient email provided: $to");
+            return;
+        }
+
+        $mail = new PHPMailer(true);
+        try {
+            $mail->isSMTP();
+            $mail->Host       = $_ENV['SMTP_HOST'];
+            $mail->SMTPAuth   = true;
+            $mail->Username   = $_ENV['SMTP_USERNAME'];
+            $mail->Password   = $_ENV['SMTP_PASSWORD'];
+            $mail->SMTPSecure = $_ENV['SMTP_SECURE'];
+            $mail->Port       = $_ENV['SMTP_PORT'];
+
+            $mail->setFrom($_ENV['SMTP_FROM_EMAIL'], $_ENV['SMTP_FROM_NAME']);
+            $mail->addAddress($to);
+
+            if (!empty($ccRecipients)) {
+                foreach ($ccRecipients as $email) {
+                    $trimmedEmail = trim($email);
+                    if (filter_var($trimmedEmail, FILTER_VALIDATE_EMAIL)) {
+                        $mail->addCC($trimmedEmail);
+                    }
+                }
+            }
+
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body    = $htmlBody;
+
+            $mail->send();
+        } catch (Exception $e) {
+            error_log("Generic Mailer Error: {$mail->ErrorInfo}");
+            throw $e;
+        }
+    }
 }
