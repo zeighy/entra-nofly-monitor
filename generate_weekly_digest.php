@@ -119,51 +119,63 @@ if (empty($digestData)) {
 }
 
 // Build Email HTML
-$htmlBody = "<h2>Weekly Entra User Activity Digest</h2>";
-$htmlBody .= "<p>Consolidated overview of detections and successful logins per user for the last 7 days.</p>";
+$htmlBody = "<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; padding: 20px; color: #1e293b; line-height: 1.5;\">";
+$htmlBody .= "<div style=\"max-width: 1000px; margin: 0 auto; background-color: #ffffff; border-top: 5px solid #0f2027; box-shadow: 0 2px 4px rgba(0,0,0,0.05);\">";
 
-$htmlBody .= "<table border='1' cellpadding='8' style='border-collapse: collapse; width: 100%; font-family: sans-serif;'>";
-$htmlBody .= "<tr style='background-color: #f2f2f2;'>";
-$htmlBody .= "<th>User</th>";
-$htmlBody .= "<th>Detections (Last 7 Days)</th>";
-$htmlBody .= "<th>Successful Logins (Last 7 Days)</th>";
-$htmlBody .= "<th>Prior Successful Logins (Days 8-14 Ago)</th>";
+// Header
+$htmlBody .= "<div style=\"padding: 20px; border-bottom: 2px solid #e2e8f0; background-color: #0f2027; color: #ffffff;\">";
+$htmlBody .= "<h2 style=\"margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 0.5px;\">Weekly Entra User Activity Digest</h2>";
+$htmlBody .= "</div>";
+
+$htmlBody .= "<div style=\"padding: 20px;\">";
+$htmlBody .= "<p style=\"margin-top: 0; margin-bottom: 20px; font-size: 16px;\">Consolidated overview of detections and successful logins per user for the last 7 days.</p>";
+
+$htmlBody .= "<table width=\"100%\" cellpadding=\"15\" style=\"border-collapse: collapse; font-size: 14px;\">";
+$htmlBody .= "<thead>";
+$htmlBody .= "<tr>";
+$htmlBody .= "<th style=\"background-color: #0f2027; color: white; border: 1px solid #cbd5e1; text-align: left; text-transform: uppercase; font-size: 12px;\">User</th>";
+$htmlBody .= "<th style=\"background-color: #0f2027; color: white; border: 1px solid #cbd5e1; text-align: left; text-transform: uppercase; font-size: 12px;\">Detections (Last 7 Days)</th>";
+$htmlBody .= "<th style=\"background-color: #0f2027; color: white; border: 1px solid #cbd5e1; text-align: left; text-transform: uppercase; font-size: 12px;\">Successful Logins (Last 7 Days)</th>";
+$htmlBody .= "<th style=\"background-color: #0f2027; color: white; border: 1px solid #cbd5e1; text-align: left; text-transform: uppercase; font-size: 12px;\">Prior Successful Logins (Days 8-14 Ago)</th>";
 $htmlBody .= "</tr>";
+$htmlBody .= "</thead>";
+$htmlBody .= "<tbody>";
 
-foreach ($digestData as $user) {
-    $htmlBody .= "<tr>";
+foreach ($digestData as $index => $user) {
+    $bgClass = ($index % 2 === 0) ? '#ffffff' : '#f8fafc';
+    $htmlBody .= "<tr style=\"background-color: " . $bgClass . ";\">";
     
     // User
-    $htmlBody .= "<td><strong>" . htmlspecialchars($user['upn']) . "</strong></td>";
+    $htmlBody .= "<td style=\"border: 1px solid #cbd5e1; vertical-align: top;\"><strong style=\"color: #0f2027;\">" . htmlspecialchars($user['upn']) . "</strong></td>";
     
     // Detections
-    $htmlBody .= "<td>";
-    $htmlBody .= "Impossible Travel: " . $user['impossible_travel_count'] . "<br>";
-    $htmlBody .= "Region Changes: " . $user['region_change_count'] . "<br>";
-    $htmlBody .= "Device Changes: " . $user['device_change_count'] . "<br>";
+    $htmlBody .= "<td style=\"border: 1px solid #cbd5e1; vertical-align: top;\">";
+    $htmlBody .= "<div style=\"margin-bottom: 5px;\">Impossible Travel: <strong style=\"color: " . ($user['impossible_travel_count'] > 0 ? '#e63946' : '#64748b') . ";\">" . $user['impossible_travel_count'] . "</strong></div>";
+    $htmlBody .= "<div style=\"margin-bottom: 5px;\">Region Changes: <strong style=\"color: " . ($user['region_change_count'] > 0 ? '#0284c7' : '#64748b') . ";\">" . $user['region_change_count'] . "</strong></div>";
+    $htmlBody .= "<div>Device Changes: <strong style=\"color: " . ($user['device_change_count'] > 0 ? '#8b5cf6' : '#64748b') . ";\">" . $user['device_change_count'] . "</strong></div>";
     $htmlBody .= "</td>";
     
     // Current Regions
-    $htmlBody .= "<td>";
+    $htmlBody .= "<td style=\"border: 1px solid #cbd5e1; vertical-align: top;\">";
     if (empty($user['current_regions'])) {
-        $htmlBody .= "<em>None detected</em>";
+        $htmlBody .= "<em style=\"color: #94a3b8;\">None detected</em>";
     } else {
-        $htmlBody .= "<ul style='margin: 0; padding-left: 20px;'>";
+        $htmlBody .= "<ul style=\"margin: 0; padding-left: 20px;\">";
         foreach ($user['current_regions'] as $region => $count) {
-            $htmlBody .= "<li>" . htmlspecialchars($region) . " (" . $count . " logins)</li>";
+            $htmlBody .= "<li style=\"margin-bottom: 4px;\">" . htmlspecialchars($region) . " <span style=\"color: #059669; font-weight: bold;\">(" . $count . " logins)</span></li>";
         }
         $htmlBody .= "</ul>";
     }
     $htmlBody .= "</td>";
 
     // Prior Regions
-    $htmlBody .= "<td>";
+    $htmlBody .= "<td style=\"border: 1px solid #cbd5e1; vertical-align: top;\">";
     if (empty($user['prior_regions'])) {
-        $htmlBody .= "<em>None detected</em>";
+        $htmlBody .= "<em style=\"color: #94a3b8;\">None detected</em>";
     } else {
-        $htmlBody .= "<ul style='margin: 0; padding-left: 20px;'>";
+        $htmlBody .= "<ul style=\"margin: 0; padding-left: 20px; color: #64748b;\">";
         foreach ($user['prior_regions'] as $region) {
-            $htmlBody .= "<li>" . htmlspecialchars($region) . "</li>";
+            $htmlBody .= "<li style=\"margin-bottom: 4px;\">" . htmlspecialchars($region) . "</li>";
         }
         $htmlBody .= "</ul>";
     }
@@ -172,8 +184,17 @@ foreach ($digestData as $user) {
     $htmlBody .= "</tr>";
 }
 
+$htmlBody .= "</tbody>";
 $htmlBody .= "</table>";
-$htmlBody .= "<br><p><small>This is an automated message from your Entra Monitor instance.</small></p>";
+$htmlBody .= "</div>"; // End padding div
+
+// Footer
+$htmlBody .= "<div style=\"padding: 20px; text-align: center; color: #64748b; font-size: 12px; border-top: 2px solid #e2e8f0;\">";
+$htmlBody .= "This is an automated message from your Entra Monitor instance.";
+$htmlBody .= "</div>";
+
+$htmlBody .= "</div>"; // End max-width wrapper
+$htmlBody .= "</div>"; // End background wrapper
 
 // Send Email
 $subject = "Weekly Entra Activity Digest - " . date('Y-m-d');
