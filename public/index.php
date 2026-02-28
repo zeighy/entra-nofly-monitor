@@ -1,5 +1,5 @@
 <?php
-define('BASE_PATH', '/nofly-monitor/public/index.php');
+define('BASE_PATH', '/nofly-watch/public/index.php');
 
 // --- Session Handling ---
 $session_path = __DIR__ . '/../sessions';
@@ -221,7 +221,7 @@ if ($auth->check()) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Entra Impossible Travel Monitor</title>
-    <link rel="stylesheet" href="/nofly-monitor/public/style.css">
+    <link rel="stylesheet" href="/nofly-watch/public/style.css">
     <?php if (!$auth->check()): ?>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <?php endif; ?>
@@ -234,6 +234,7 @@ if ($auth->check()) {
                 <div class="user-info">
                     Welcome, <strong><?= htmlspecialchars($auth->getUsername()) ?></strong> | 
                     <a href="user_ip_report.php">User IP Report</a> | 
+                    <a href="failed_logins.php">Failed Logins Report</a> | 
                     <a href="<?= BASE_PATH ?>?logout=1">Logout</a>
                 </div>
             <?php endif; ?>
