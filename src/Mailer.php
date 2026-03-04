@@ -72,30 +72,30 @@ class Mailer {
             $regionChangeCount = array_count_values($incidentTypes)['region_change'] ?? 0;
             $deviceChangeCount = count($deviceChangeIncidents);
             
-            $body = "<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; padding: 20px; color: #1e293b; line-height: 1.5;\">";
+            $body = "<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; padding: 20px; color: #1e293b; line-height: 1;\">";
             $body .= "<div style=\"max-width: 800px; margin: 0 auto; background-color: #ffffff; border-top: 5px solid #0f2027; box-shadow: 0 2px 4px rgba(0,0,0,0.05);\">";
             
             // Header
-            $body .= "<div style=\"padding: 20px; border-bottom: 2px solid #e2e8f0; background-color: #0f2027; color: #ffffff;\">";
+            $body .= "<div style=\"padding: 30px 20px; border-bottom: 2px solid #e2e8f0; background-color: #0f2027; color: #ffffff;\">";
             $body .= "<h2 style=\"margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 0.5px;\">Consolidated Security Alert</h2>";
             $body .= "</div>";
 
             // Summary Section
             $body .= "<div style=\"padding: 20px;\">";
             $body .= "<p style=\"margin-top: 0; font-size: 16px;\">A recent scan detected the following notable events:</p>";
-            $body .= "<table width=\"100%\" cellpadding=\"10\" style=\"border-collapse: collapse; background-color: #f8fafc; border: 1px solid #cbd5e1; margin-bottom: 20px;\">";
-            $body .= "<tr><td width=\"50%\" style=\"border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1;\"><strong>Total Incidents:</strong></td><td style=\"border-bottom: 1px solid #cbd5e1;\"><span style=\"font-size: 18px; font-weight: bold; color: #e63946;\">" . $totalIncidents . "</span></td></tr>";
-            $body .= "<tr><td width=\"50%\" style=\"border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1;\"><strong>Unique Users Affected:</strong></td><td style=\"border-bottom: 1px solid #cbd5e1;\">" . $uniqueUsers . "</td></tr>";
-            $body .= "<tr><td width=\"50%\" style=\"border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1;\"><strong>Impossible Travel Events:</strong></td><td style=\"border-bottom: 1px solid #cbd5e1;\">" . $impossibleTravelCount . "</td></tr>";
-            $body .= "<tr><td width=\"50%\" style=\"border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1;\"><strong>Region Change Events:</strong></td><td style=\"border-bottom: 1px solid #cbd5e1;\">" . $regionChangeCount . "</td></tr>";
-            $body .= "<tr><td width=\"50%\" style=\"border-right: 1px solid #cbd5e1;\"><strong>Auth Device Changes:</strong></td><td>" . $deviceChangeCount . "</td></tr>";
+            $body .= "<table width=\"100%\" cellpadding=\"15\" style=\"border-collapse: collapse; background-color: #f8fafc; border: 1px solid #cbd5e1; margin-bottom: 20px;\">";
+            $body .= "<tr><td width=\"50%\" style=\"padding: 15px; border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1;\"><strong>Total Incidents:</strong></td><td style=\"padding: 15px; border-bottom: 1px solid #cbd5e1;\"><span style=\"font-size: 18px; font-weight: bold; color: #e63946;\">" . $totalIncidents . "</span></td></tr>";
+            $body .= "<tr><td width=\"50%\" style=\"padding: 15px; border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1;\"><strong>Unique Users Affected:</strong></td><td style=\"padding: 15px; border-bottom: 1px solid #cbd5e1;\">" . $uniqueUsers . "</td></tr>";
+            $body .= "<tr><td width=\"50%\" style=\"padding: 15px; border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1;\"><strong>Impossible Travel Events:</strong></td><td style=\"padding: 15px; border-bottom: 1px solid #cbd5e1;\">" . $impossibleTravelCount . "</td></tr>";
+            $body .= "<tr><td width=\"50%\" style=\"padding: 15px; border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1;\"><strong>Region Change Events:</strong></td><td style=\"padding: 15px; border-bottom: 1px solid #cbd5e1;\">" . $regionChangeCount . "</td></tr>";
+            $body .= "<tr><td width=\"50%\" style=\"padding: 15px; border-right: 1px solid #cbd5e1;\"><strong>Auth Device Changes:</strong></td><td style=\"padding: 15px;\">" . $deviceChangeCount . "</td></tr>";
             $body .= "</table>";
-            $body .= "<div style=\"background-color: #e0f2fe; border-left: 4px solid #0284c7; padding: 10px 15px; font-size: 13px; color: #0369a1;\"><strong>Note:</strong> A single recent sign-in may generate multiple incidents if it is anomalous when compared against several different logins from the past 24 hours.</div>";
+            $body .= "<div style=\"background-color: #e0f2fe; border-left: 4px solid #0284c7; padding: 15px 20px; font-size: 13px; color: #0369a1;\"><strong>Note:</strong> A single recent sign-in may generate multiple incidents if it is anomalous when compared against several different logins from the past 24 hours.</div>";
             $body .= "</div>";
 
             // Incidents Section
             $body .= "<div style=\"padding: 20px; border-top: 2px solid #e2e8f0;\">";
-            $body .= "<h2 style=\"margin-top: 0; color: #0f2027; text-transform: uppercase; font-size: 18px; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px;\">Incident Details</h2>";
+            $body .= "<h2 style=\"margin-top: 0; color: #0f2027; text-transform: uppercase; font-size: 18px; border-bottom: 2px solid #f0f2f5; padding-bottom: 15px;\">Incident Details</h2>";
 
             // --- Display Travel and Region incidents first ---
             foreach ($travelRegionIncidents as $index => $incident) {
@@ -106,29 +106,29 @@ class Mailer {
                 
                 if ($incident['type'] === 'impossible_travel') {
                     $speed = $incident['speed'];
-                    $body .= "<div style=\"background-color: #fff1f2; border-bottom: 1px solid #cbd5e1; padding: 10px 15px; border-left: 4px solid #e63946;\">";
+            $body .= "<div style=\"background-color: #fff1f2; border-bottom: 1px solid #cbd5e1; padding: 15px 20px; border-left: 4px solid #e63946;\">";
                     $body .= "<h3 style=\"margin: 0; color: #b91c1c; font-size: 16px;\">#" . ($index + 1) . " - Impossible Travel Detected</h3>";
                     $body .= "</div>";
-                    $body .= "<div style=\"padding: 15px;\">";
+            $body .= "<div style=\"padding: 20px;\">";
                     $body .= "<div style=\"margin-bottom: 15px;\"><strong>User:</strong> <span style=\"font-weight: bold; color: #0f2027; font-size: 16px;\">" . htmlspecialchars($currentLog['user_principal_name']) . "</span></div>";
                     $body .= "<div style=\"margin-bottom: 15px;\"><strong>Calculated Speed:</strong> <span style=\"background-color: #fee2e2; color: #b91c1c; padding: 3px 8px; font-weight: bold; font-size: 16px;\">" . round($speed) . " km/h</span></div>";
                 } elseif ($incident['type'] === 'region_change') {
-                    $body .= "<div style=\"background-color: #f0f9ff; border-bottom: 1px solid #cbd5e1; padding: 10px 15px; border-left: 4px solid #0284c7;\">";
+            $body .= "<div style=\"background-color: #f0f9ff; border-bottom: 1px solid #cbd5e1; padding: 15px 20px; border-left: 4px solid #0284c7;\">";
                     $body .= "<h3 style=\"margin: 0; color: #0369a1; font-size: 16px;\">#" . ($index + 1) . " - Region Change Detected</h3>";
                     $body .= "</div>";
-                    $body .= "<div style=\"padding: 15px;\">";
+            $body .= "<div style=\"padding: 20px;\">";
                     $body .= "<div style=\"margin-bottom: 15px;\"><strong>User:</strong> <span style=\"font-weight: bold; color: #0f2027; font-size: 16px;\">" . htmlspecialchars($currentLog['user_principal_name']) . "</span></div>";
                 }
 
-                $body .= "<table width=\"100%\" cellpadding=\"10\" style=\"border-collapse: collapse; font-size: 14px;\">";
+                $body .= "<table width=\"100%\" cellpadding=\"15\" style=\"border-collapse: collapse; font-size: 14px;\">";
                 $body .= "<tr>";
-                $body .= "<td width=\"50%\" style=\"background-color: #f8fafc; border: 1px solid #cbd5e1; vertical-align: top;\">";
+                $body .= "<td width=\"50%\" style=\"background-color: #f8fafc; border: 1px solid #cbd5e1; vertical-align: top; padding: 15px;\">";
                 $body .= "<div style=\"font-weight: bold; color: #64748b; margin-bottom: 5px; text-transform: uppercase; font-size: 12px;\">Previous Login (From)</div>";
                 $body .= "<div style=\"margin-bottom: 5px;\"><strong>" . htmlspecialchars(($previousLog['city'] ?? 'N/A') . ', ' . ($previousLog['region'] ?? 'N/A') . ', ' . ($previousLog['country'] ?? 'N/A')) . "</strong></div>";
                 $body .= "<div style=\"color: #64748b; font-family: monospace;\">" . htmlspecialchars($previousLog['ip_address']) . "</div>";
                 $body .= "<div style=\"color: #64748b; font-size: 12px; margin-top: 5px;\">" . $previousLog['login_time'] . " UTC</div>";
                 $body .= "</td>";
-                $body .= "<td width=\"50%\" style=\"background-color: #ffffff; border: 1px solid #cbd5e1; vertical-align: top;\">";
+                $body .= "<td width=\"50%\" style=\"background-color: #ffffff; border: 1px solid #cbd5e1; vertical-align: top; padding: 15px;\">";
                 $body .= "<div style=\"font-weight: bold; color: #0f2027; margin-bottom: 5px; text-transform: uppercase; font-size: 12px;\">Current Login (To)</div>";
                 $body .= "<div style=\"margin-bottom: 5px;\"><strong>" . htmlspecialchars(($currentLog['city'] ?? 'N/A') . ', ' . ($currentLog['region'] ?? 'N/A') . ', ' . ($currentLog['country'] ?? 'N/A')) . "</strong></div>";
                 $body .= "<div style=\"color: #0f2027; font-family: monospace; font-weight: bold;\">" . htmlspecialchars($currentLog['ip_address']) . "</div>";
@@ -150,14 +150,14 @@ class Mailer {
                 
                 foreach($groupedDeviceChanges as $user => $changes) {
                     $body .= "<div style=\"margin-bottom: 20px; border: 1px solid #cbd5e1; background-color: #ffffff;\">";
-                    $body .= "<div style=\"padding: 10px 15px; background-color: #f8fafc; border-bottom: 1px solid #cbd5e1;\"><strong>User:</strong> <span style=\"font-weight: bold; color: #0f2027; font-size: 16px;\">" . htmlspecialchars($user) . "</span></div>";
-                    $body .= "<div style=\"padding: 15px;\">";
+                    $body .= "<div style=\"padding: 15px 20px; background-color: #f8fafc; border-bottom: 1px solid #cbd5e1;\"><strong>User:</strong> <span style=\"font-weight: bold; color: #0f2027; font-size: 16px;\">" . htmlspecialchars($user) . "</span></div>";
+                    $body .= "<div style=\"padding: 20px;\">";
                     
                     if (!empty($changes['Added'])) {
-                        $body .= "<div style=\"margin-bottom: 10px;\"><strong style=\"color: #16a34a;\">Devices Added:</strong> " . htmlspecialchars(implode(', ', $changes['Added'])) . "</div>";
+                        $body .= "<div style=\"margin-bottom: 15px;\"><strong style=\"color: #16a34a;\">Devices Added:</strong> " . htmlspecialchars(implode(', ', $changes['Added'])) . "</div>";
                     }
                     if (!empty($changes['Removed'])) {
-                        $body .= "<div><strong style=\"color: #dc2626;\">Devices Removed:</strong> " . htmlspecialchars(implode(', ', $changes['Removed'])) . "</div>";
+                        $body .= "<div style=\"margin-bottom: 15px;\"><strong style=\"color: #dc2626;\">Devices Removed:</strong> " . htmlspecialchars(implode(', ', $changes['Removed'])) . "</div>";
                     }
                     $body .= "</div></div>";
                 }
@@ -219,9 +219,9 @@ class Mailer {
             $subject = '';
             $body = '';
 
-            $locationDisclaimer = "<div style=\"background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; margin-top: 20px; font-size: 13px; color: #64748b;\"><strong>Note on Location Accuracy:</strong> The location is determined based on the IP address of the successful login as recorded by Microsoft and may not be perfectly accurate. Connecting or disconnecting from a VPN service can also trigger these alerts. <strong style=\"color: #0f2027;\">As long as you are aware of this recent login, no further action is required.</strong></div>";
+            $locationDisclaimer = "<div style=\"background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 15px 20px; margin-top: 20px; font-size: 13px; color: #64748b;\"><strong>Note on Location Accuracy:</strong> The location is determined based on the IP address of the successful login as recorded by Microsoft and may not be perfectly accurate. Connecting or disconnecting from a VPN service can also trigger these alerts. <strong style=\"color: #0f2027;\">As long as you are aware of this recent login, no further action is required.</strong></div>";
 
-            $body = "<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; padding: 20px; color: #1e293b; line-height: 1.5;\">";
+            $body = "<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; padding: 20px; color: #1e293b; line-height: 1;\">";
             $body .= "<div style=\"max-width: 600px; margin: 0 auto; background-color: #ffffff; border-top: 5px solid #e63946; box-shadow: 0 2px 4px rgba(0,0,0,0.05);\">";
 
             switch ($alertType) {
@@ -230,20 +230,20 @@ class Mailer {
                     $currentLog = $incidentData['current_log'];
                     $previousLog = $incidentData['previous_log'];
                     
-                    $body .= "<div style=\"padding: 20px; border-bottom: 2px solid #e2e8f0; background-color: #fff1f2;\">";
+                    $body .= "<div style=\"padding: 30px 20px; border-bottom: 2px solid #e2e8f0; background-color: #fff1f2;\">";
                     $body .= "<h2 style=\"margin: 0; font-size: 20px; color: #b91c1c; text-transform: uppercase;\">Irregular Travel Detected</h2>";
                     $body .= "</div>";
                     $body .= "<div style=\"padding: 20px;\">";
                     $body .= "<p style=\"margin-top: 0; font-size: 16px;\">We have detected a login to your account from a location that is considered impossible or irregular to reach in the time elapsed when compared to other logins in the last 24 hours.</p>";
                     
                     $body .= "<table width=\"100%\" cellpadding=\"15\" style=\"border-collapse: collapse; font-size: 14px; margin-bottom: 20px; border: 1px solid #cbd5e1;\">";
-                    $body .= "<tr><td style=\"background-color: #f8fafc; border-bottom: 1px solid #cbd5e1;\">";
+                    $body .= "<tr><td style=\"background-color: #f8fafc; border-bottom: 1px solid #cbd5e1; padding: 15px;\">";
                     $body .= "<div style=\"font-weight: bold; color: #64748b; margin-bottom: 5px; text-transform: uppercase; font-size: 12px;\">Previous Login Location</div>";
                     $body .= "<div style=\"margin-bottom: 5px;\"><strong>" . htmlspecialchars(($previousLog['city'] ?? 'N/A') . ', ' . ($previousLog['region'] ?? 'N/A') . ', ' . ($previousLog['country'] ?? 'N/A')) . "</strong></div>";
                     $body .= "<div style=\"color: #64748b; font-family: monospace;\">" . htmlspecialchars($previousLog['ip_address']) . "</div>";
                     $body .= "<div style=\"color: #64748b; font-size: 12px; margin-top: 5px;\">" . $previousLog['login_time'] . " UTC</div>";
                     $body .= "</td></tr>";
-                    $body .= "<tr><td style=\"background-color: #ffffff;\">";
+                    $body .= "<tr><td style=\"background-color: #ffffff; padding: 15px;\">";
                     $body .= "<div style=\"font-weight: bold; color: #b91c1c; margin-bottom: 5px; text-transform: uppercase; font-size: 12px;\">Anomalous Login Location</div>";
                     $body .= "<div style=\"margin-bottom: 5px;\"><strong>" . htmlspecialchars(($currentLog['city'] ?? 'N/A') . ', ' . ($currentLog['region'] ?? 'N/A') . ', ' . ($currentLog['country'] ?? 'N/A')) . "</strong></div>";
                     $body .= "<div style=\"color: #0f2027; font-family: monospace; font-weight: bold;\">" . htmlspecialchars($currentLog['ip_address']) . "</div>";
@@ -251,7 +251,7 @@ class Mailer {
                     $body .= "</td></tr>";
                     $body .= "</table>";
                     
-                    $body .= "<div style=\"background-color: #fef2f2; border-left: 4px solid #e63946; padding: 15px; color: #b91c1c; font-weight: bold;\">If this was not you or you do not recognize this location change, please contact your IT support immediately.</div>";
+                    $body .= "<div style=\"background-color: #fef2f2; border-left: 4px solid #e63946; padding: 15px 20px; color: #b91c1c; font-weight: bold;\">If this was not you or you do not recognize this location change, please contact your IT support immediately.</div>";
                     $body .= $locationDisclaimer;
                     $body .= "<div style=\"margin-top: 20px; font-size: 12px; color: #94a3b8;\"><i>Note: A single recent sign-in may generate multiple detections if it is anomalous when compared against several different logins from the past 24 hours.</i></div>";
                     $body .= "</div>"; // End padding div
@@ -265,18 +265,18 @@ class Mailer {
                     $currentLog = $incidentData['current_log'];
                     $previousLog = $incidentData['previous_log'];
                     
-                    $body .= "<div style=\"padding: 20px; border-bottom: 2px solid #e2e8f0; background-color: #f0f9ff;\">";
+                    $body .= "<div style=\"padding: 30px 20px; border-bottom: 2px solid #e2e8f0; background-color: #f0f9ff;\">";
                     $body .= "<h2 style=\"margin: 0; font-size: 20px; color: #0369a1; text-transform: uppercase;\">Sign-in from New Region</h2>";
                     $body .= "</div>";
                     $body .= "<div style=\"padding: 20px;\">";
                     $body .= "<p style=\"margin-top: 0; font-size: 16px;\">We have detected a login to your account from a different region than your usual activity from the last 24 hours.</p>";
                     
                     $body .= "<table width=\"100%\" cellpadding=\"15\" style=\"border-collapse: collapse; font-size: 14px; margin-bottom: 20px; border: 1px solid #cbd5e1;\">";
-                    $body .= "<tr><td style=\"background-color: #f8fafc; border-bottom: 1px solid #cbd5e1;\">";
+                    $body .= "<tr><td style=\"background-color: #f8fafc; border-bottom: 1px solid #cbd5e1; padding: 15px;\">";
                     $body .= "<div style=\"font-weight: bold; color: #64748b; margin-bottom: 5px; text-transform: uppercase; font-size: 12px;\">Previous Login Location</div>";
                     $body .= "<div style=\"margin-bottom: 5px;\"><strong>" . htmlspecialchars(($previousLog['region'] ?? 'N/A') . ', ' . ($previousLog['country'] ?? 'N/A')) . "</strong></div>";
                     $body .= "</td></tr>";
-                    $body .= "<tr><td style=\"background-color: #ffffff;\">";
+                    $body .= "<tr><td style=\"background-color: #ffffff; padding: 15px;\">";
                     $body .= "<div style=\"font-weight: bold; color: #0369a1; margin-bottom: 5px; text-transform: uppercase; font-size: 12px;\">New Login Location</div>";
                     $body .= "<div style=\"margin-bottom: 5px;\"><strong>" . htmlspecialchars(($currentLog['region'] ?? 'N/A') . ', ' . ($currentLog['country'] ?? 'N/A')) . "</strong></div>";
                     $body .= "<div style=\"color: #0f2027; font-family: monospace; font-weight: bold;\">" . htmlspecialchars($currentLog['ip_address']) . "</div>";
@@ -300,7 +300,7 @@ class Mailer {
                     $color = strtolower($change) === 'added' ? '#16a34a' : '#dc2626';
                     $bgColor = strtolower($change) === 'added' ? '#f0fdf4' : '#fef2f2';
                     
-                    $body .= "<div style=\"padding: 20px; border-bottom: 2px solid #e2e8f0; background-color: #0f2027; color: white;\">";
+                    $body .= "<div style=\"padding: 30px 20px; border-bottom: 2px solid #e2e8f0; background-color: #0f2027; color: white;\">";
                     $body .= "<h2 style=\"margin: 0; font-size: 20px; text-transform: uppercase;\">Authentication Device Change</h2>";
                     $body .= "</div>";
                     $body .= "<div style=\"padding: 20px;\">";
@@ -310,7 +310,7 @@ class Mailer {
                     $body .= "<strong>Device/Method:</strong> " . htmlspecialchars($device);
                     $body .= "</div>";
                     
-                    $body .= "<div style=\"background-color: #fef2f2; border-left: 4px solid #e63946; padding: 15px; color: #b91c1c; font-weight: bold;\">If this was not you or you do not recognize this device change, please contact your IT support immediately.</div>";
+                    $body .= "<div style=\"background-color: #fef2f2; border-left: 4px solid #e63946; padding: 15px 20px; color: #b91c1c; font-weight: bold;\">If this was not you or you do not recognize this device change, please contact your IT support immediately.</div>";
                     $body .= "<p style=\"font-size: 13px; color: #64748b; margin-top: 15px;\">Note that selecting 'remember sign-in' or 'trust device/browser' may trigger a new added device on your account, which are automatically removed after a few days.</p>";
                     $body .= "</div>"; // End padding div
                     
