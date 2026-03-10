@@ -53,4 +53,9 @@ return [
     // Admin consolidated alerts are not affected by this setting.
     // Example: 'user1@yourdomain.com', 'user2@yourdomain.com'
     'DISABLED_USER_ALERTS' => [],
+
+    // --- API Configuration ---
+    // The Bearer token required to access the /api/reports.php endpoint.
+    // Set to a strong, random string. If left blank, API access is disabled.
+    'API_TOKEN' => 'your_secure_api_token_here',
 ];
