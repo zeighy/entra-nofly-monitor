@@ -186,6 +186,25 @@ if ($auth->check()) {
             passthru(escapeshellcmd($phpPath . " " . $scriptPath));
             exit;
         }
+
+        if (isset($_POST['generate_api_token'])) {
+            $newToken = bin2hex(random_bytes(24));
+            $secretsContent = file_get_contents($secretsFile);
+
+            if (preg_match('/\'API_TOKEN\'\s*=>\s*\'[^\']*\'/', $secretsContent)) {
+                $secretsContent = preg_replace('/\'API_TOKEN\'\s*=>\s*\'[^\']*\'/', "'API_TOKEN' => '$newToken'", $secretsContent);
+            } else {
+                $secretsContent = preg_replace('/\];\s*$/', "    // --- API Configuration ---\n    'API_TOKEN' => '$newToken',\n];", $secretsContent);
+            }
+
+            if (file_put_contents($secretsFile, $secretsContent)) {
+                $_SESSION['info_message'] = "New API Token generated successfully.";
+            } else {
+                $_SESSION['info_message'] = "Error: Could not write to secrets.php. Check permissions.";
+            }
+            header('Location: ' . BASE_PATH);
+            exit;
+        }
     }
 
     if (isset($_GET['trigger']) && $_GET['trigger'] === 'background') {
@@ -250,6 +269,19 @@ if ($auth->check()) {
                 <?php endif; ?>
 
                 <div class="action-bar">
+                    <div style="background:#f1f5f9; padding: 8px 12px; border-radius: 4px; font-size: 0.9em; border: 1px solid #cbd5e1; margin-right: auto; display: flex; align-items: center; gap: 10px;">
+                        <strong>API Token:</strong>
+                        <?php if (!empty($_ENV['API_TOKEN'])): ?>
+                            <code style="background:#e2e8f0; padding: 2px 6px; border-radius: 3px; user-select: all;"><?= htmlspecialchars($_ENV['API_TOKEN']) ?></code>
+                        <?php else: ?>
+                            <span style="color: #64748b; font-style: italic;">Not generated</span>
+                        <?php endif; ?>
+                        <form method="POST" action="<?= BASE_PATH ?>" style="margin: 0; display: inline-block;">
+                            <button type="submit" name="generate_api_token" style="padding: 4px 8px; font-size: 0.85em; background: #3b82f6; border: none; color: white; border-radius: 3px; cursor: pointer;">
+                                <?= empty($_ENV['API_TOKEN']) ? 'Generate' : 'Regenerate' ?>
+                            </button>
+                        </form>
+                    </div>
                     <a href="<?= BASE_PATH ?>?trigger=background" class="action-button">Manually Trigger Sync</a>
                     <form method="POST" action="<?= BASE_PATH ?>" class="export-form">
                         <select name="export_type">
