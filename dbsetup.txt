@@ -24,6 +24,8 @@ CREATE TABLE `ip_geolocation_cache` (
   `lat` DECIMAL(10, 8) NULL,
   `lon` DECIMAL(11, 8) NULL,
   `isp` VARCHAR(255) NULL,
+  `is_proxy` TINYINT(1) NULL,
+  `is_hosting` TINYINT(1) NULL,
   `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
@@ -47,8 +49,28 @@ CREATE TABLE `login_logs` (
   `travel_speed_kph` DECIMAL(10, 2) NULL,
   `previous_log_id` INT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  -- Context captured for risk scoring (see src/RiskScorer.php)
+  `error_code` INT NULL,
+  `app_display_name` VARCHAR(255) NULL,
+  `resource_display_name` VARCHAR(255) NULL,
+  `client_app_used` VARCHAR(100) NULL,
+  `device_id` VARCHAR(100) NULL,
+  `device_display_name` VARCHAR(255) NULL,
+  `device_os` VARCHAR(100) NULL,
+  `device_browser` VARCHAR(255) NULL,
+  `is_compliant` TINYINT(1) NULL,
+  `is_managed` TINYINT(1) NULL,
+  `is_interactive` TINYINT(1) NULL,
+  `conditional_access_status` VARCHAR(50) NULL,
+  `risk_level_during_signin` VARCHAR(30) NULL,
+  `risk_state` VARCHAR(50) NULL,
+  `isp` VARCHAR(255) NULL,
+  `is_proxy` TINYINT(1) NULL,
+  `is_hosting` TINYINT(1) NULL,
   INDEX `user_id_idx` (`user_id`),
-  INDEX `login_time_idx` (`login_time`)
+  INDEX `login_time_idx` (`login_time`),
+  INDEX `user_time_idx` (`user_id`, `login_time`),
+  INDEX `ip_time_idx` (`ip_address`, `login_time`)
 );
 
 
@@ -94,4 +116,60 @@ CREATE TABLE `auth_device_changes` (
   `change_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX `user_id_idx` (`user_id`),
   INDEX `change_time_idx` (`change_time`)
+);
+
+
+-- ---------------------------------------------------------------------------
+-- Risk scoring (src/RiskScorer.php)
+-- Existing installs: run `php migrate_risk_scoring.php` instead of the above.
+-- ---------------------------------------------------------------------------
+
+-- Per-user rolling profile of "normal": countries, ISPs, apps, devices, client apps.
+-- days_seen counts distinct calendar days a value was observed; a value only
+-- counts as "established" once days_seen reaches BASELINE_CONFIRM_DAYS.
+CREATE TABLE `user_baselines` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` VARCHAR(255) NOT NULL,
+  `dimension` VARCHAR(20) NOT NULL,
+  `value` VARCHAR(255) NOT NULL,
+  `seen_count` INT NOT NULL DEFAULT 1,
+  `days_seen` INT NOT NULL DEFAULT 1,
+  `first_seen` DATETIME NOT NULL,
+  `last_seen` DATETIME NOT NULL,
+  UNIQUE KEY `user_dim_value_unique` (`user_id`, `dimension`, `value`),
+  INDEX `last_seen_idx` (`last_seen`)
+);
+
+-- One row per fired risk signal. dedupe_key stops the same signal being
+-- recorded repeatedly for the same underlying activity.
+CREATE TABLE `risk_events` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` VARCHAR(255) NOT NULL,
+  `user_principal_name` VARCHAR(255) NOT NULL,
+  `signal_code` VARCHAR(50) NOT NULL,
+  `weight` SMALLINT NOT NULL,
+  `login_log_id` INT NULL,
+  `device_change_id` INT NULL,
+  `ip_address` VARCHAR(45) NULL,
+  `description` VARCHAR(500) NOT NULL,
+  `details` TEXT NULL,
+  `occurred_at` DATETIME NOT NULL,
+  `dedupe_key` VARCHAR(190) NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `event_dedupe_unique` (`user_id`, `signal_code`, `dedupe_key`),
+  INDEX `user_time_idx` (`user_id`, `occurred_at`),
+  INDEX `occurred_idx` (`occurred_at`)
+);
+
+-- Current rolled-up risk per user (rebuilt from risk_events on every run).
+CREATE TABLE `user_risk_scores` (
+  `user_id` VARCHAR(255) PRIMARY KEY,
+  `user_principal_name` VARCHAR(255) NOT NULL,
+  `score` SMALLINT NOT NULL,
+  `tier` VARCHAR(10) NOT NULL,
+  `signals` TEXT NULL,
+  `event_count` INT NOT NULL DEFAULT 0,
+  `last_event_at` DATETIME NULL,
+  `updated_at` DATETIME NOT NULL,
+  INDEX `score_idx` (`score`)
 );

@@ -34,6 +34,26 @@ return [
     // 80km is default as it iss roughly 1 hour communute for in-city driving.
     'REGION_CHANGE_IGNORE_KM' => 80,
 
+    // --- Risk Scoring (all optional; the values shown are the defaults) ---
+    // Users are scored from the signals seen in the last RISK_WINDOW_HOURS and placed in a tier.
+    // 'RISK_WINDOW_HOURS' => 24,
+    // 'RISK_TIER_CRITICAL' => 80,
+    // 'RISK_TIER_HIGH' => 55,
+    // 'RISK_TIER_MEDIUM' => 30,
+    // 'RISK_TIER_LOW' => 15,
+    // A user's baseline needs this many successful sign-ins (spread over more than BASELINE_CONFIRM_DAYS)
+    // before "new country / ISP / device / app" signals are raised. A value counts as established once it
+    // has been seen on BASELINE_CONFIRM_DAYS separate days; baseline values expire after BASELINE_RETENTION_DAYS.
+    // 'BASELINE_MIN_LOGINS' => 10,
+    // 'BASELINE_CONFIRM_DAYS' => 2,
+    // 'BASELINE_RETENTION_DAYS' => 90,
+    // Sequence detection thresholds.
+    // 'RISK_BRUTE_FORCE_FAILURES' => 5,   // failed passwords in 60 min
+    // 'RISK_MFA_FATIGUE_DENIALS' => 4,    // denied/ignored MFA prompts in 30 min
+    // 'RISK_SPRAY_MIN_USERS' => 5,        // accounts failing from one IP in 60 min
+    // Override individual signal weights (see the table under Tools & help in the dashboard).
+    // 'RISK_WEIGHTS' => ['NEW_COUNTRY' => 30, 'LEGACY_AUTH' => 25],
+
     // --- Email Alerting Configuration ---
     'SMTP_HOST' => 'your_smtp_server.com',
     'SMTP_PORT' => 587,

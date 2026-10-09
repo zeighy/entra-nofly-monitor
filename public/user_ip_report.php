@@ -129,19 +129,8 @@ if ($selectedUser) {
     </style>
 </head>
 <body>
+<?php require_once __DIR__ . '/partials/nav.php'; render_nav('ips', $auth->getUsername()); ?>
     <div class="container">
-        <header>
-            <h1>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                User IP Report (Last 30 Days)
-            </h1>
-            <div class="user-info">
-                Welcome, <strong><?= htmlspecialchars($auth->getUsername()) ?></strong> | 
-                <a href="index.php" class="flex-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg> Dashboard</a> | 
-                <a href="failed_logins.php" class="flex-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> Failed Logins</a> | 
-                <a href="index.php?logout=1" class="flex-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg> Logout</a>
-            </div>
-        </header>
 
         <main>
             <section class="search-section">

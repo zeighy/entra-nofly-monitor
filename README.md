@@ -19,6 +19,8 @@ A standalone PHP application to monitor Microsoft Entra (Azure AD) sign-in logs 
 -   **Failed Logins Report**: A dedicated web page showing all users with failed logins in the last 7 days, along with comparisons to the prior 7 days and their successful login counts.
 -   **User IP Report**: A dedicated web page to search for any user and review a list of all IP addresses they have successfully logged in from over the last 30 days.
 -   **Weekly Email Digest**: An independent script to generate a weekly consolidated summary showing every user's detection counts and successful login locations compared to the prior week.
+-   **Risk Scoring**: Every sign-in is compared with a rolling baseline of what is normal for that user (countries, ISPs, devices, apps) and with recent activity across the tenant. Matches become weighted *risk signals*; each user's signals over the last 24 hours roll up into a score and a **Critical / High / Medium / Low** tier. Sequence patterns are detected too: password guessing then success, MFA fatigue then success, password spray, and an MFA device change next to an anomalous sign-in. Scoring is shown on the dashboard only; it does not change which emails are sent.
+-   **Dashboard**: Risk tiers, activity KPIs, users at risk, a live feed of risk signals, sign-ins per hour and top countries at a glance, with tabbed detail tables beneath. Follows the OS light/dark setting and works on mobile.
 -   **Automated & Manual Processing**: Includes scripts for automated cron job execution, manual on-demand syncs, historical data reprocessing, and data cleanup.
 -   **Flexible Data Exports**: A consolidated dropdown menu in the UI allows for exporting alerts or sign-in logs from various timeframes (24 hours, 7 days, 30 days, or all time) to CSV.
 
@@ -40,7 +42,8 @@ This script is designed to be run by a cron job at regular intervals (e.g., ever
     * **Checks for Device Changes**: For each unique user in the log batch, it compares their current MFA devices in Entra against a saved snapshot in the local database. Any added or removed devices are flagged as incidents.
 3.  **Builds Email Digest**: It collects all incidents that meet the stricter criteria for email alerts (e.g., not whitelisted, region change distance exceeded) into a single list.
 4.  **Sends Email**: If any email-worthy incidents were found, it sends one single, consolidated email digest to all configured recipients and logs the sent alerts in the `email_alerts` table.
-5.  **Prunes Old Data**: Automatically deletes logs from the `login_logs` table that are older than 180 days.
+5.  **Scores Risk**: Each stored sign-in is passed to `RiskScorer`, which records any risk signals in `risk_events`, updates the user's baseline, and finally refreshes each user's tier in `user_risk_scores`. A failure in scoring is logged and never blocks sign-ins being stored or alerts being sent.
+6.  **Prunes Old Data**: Automatically deletes logs from the `login_logs` table that are older than 180 days, risk events older than 180 days, and baseline values not seen within `BASELINE_RETENTION_DAYS`.
 
 ### 2. The Web UI (`public/index.php`)
 
@@ -52,6 +55,31 @@ The web UI provides a convenient way to visualize and manage the data collected 
 -   The main log view is now conveniently filtered to the **last 24 hours**.
 -   It includes buttons to **Manually Trigger Sync** and to **Reprocess All Logs** (with a confirmation warning).
 -   A new expandable **Help Section** explains the application logic and features.
+
+---
+
+## Risk Scoring
+
+Risk scoring is deterministic and explainable: every point of a score traces back to a named signal with a human-readable description.
+
+**Signals** (default weights; see *Tools & help* in the dashboard for the full table)
+
+| Kind | Examples |
+|---|---|
+| Against the user's baseline | New country (25), new ISP (10), new device/browser (10), new app (5) |
+| Sign-in context | Impossible travel (40), region change (10), proxy/hosting IP (20), legacy authentication (15), Entra ID Protection risk high/medium/low (40/20/5) |
+| Sequences | Password guessing then success (55), MFA fatigue then success (70), success from a password-spray source (55), repeated failures / MFA denials / spray target (15-25) |
+| MFA changes | Device added (20) or removed (10), and an MFA change within 24 hours of an anomalous sign-in (50) |
+
+**Tiers.** A user's score is the sum of their distinct signals over the last 24 hours (a repeated signal adds a quarter of its weight, up to three times), capped at 100. Defaults: Critical >= 80, High >= 55, Medium >= 30, Low >= 15. *MFA fatigue then success* and *MFA change near an anomalous sign-in* are critical regardless of score.
+
+**Baselines.** "New" only means something once a user has history: signals such as *new country* are held back until the user has `BASELINE_MIN_LOGINS` successful sign-ins spanning more than `BASELINE_CONFIRM_DAYS` days. A value only becomes "normal" after it has been seen on `BASELINE_CONFIRM_DAYS` separate days, so an attacker's first login does not immediately normalise their location or device.
+
+**Whitelisted IPs** are excluded from location- and IP-based signals, matching how they already suppress emails.
+
+**Entra data.** Device, app, client-app and risk-rating signals come from the sign-in log itself. `riskLevelDuringSignIn` is only populated for tenants licensed for Entra ID Protection (Entra ID P2); without it, the other signals still work.
+
+All thresholds and weights are optional settings in `secrets.php`; see `generic_secrets.php`.
 
 ---
 
@@ -161,6 +189,19 @@ All configuration is handled in the `secrets.php` file.
 -   **Headless Operation**: The application can run perfectly well without the Web UI. If you do not need it, you can block all web access to the `/nofly-monitor` directory in your server configuration for maximum security.
 
 ## Upgrading from a Previous Version
+
+### Adding risk scoring and the new dashboard
+
+Existing installs need a one-time migration. The background task will refuse to run until it has been applied.
+
+1.  Update the application files (including the new `src/RiskScorer.php` and `public/partials/`).
+2.  Run `php migrate_risk_scoring.php`. It adds the new sign-in columns and the `user_baselines`, `risk_events` and `user_risk_scores` tables, and is safe to run more than once.
+3.  Run `php rebuild_risk.php` to build baselines and risk events from the sign-ins you already have. Run it again after `reprocess_logs.php` or after changing weights/thresholds. It never calls Microsoft Graph and never sends email.
+4.  Optionally run `php populate_devices.php` if you have not already, so the first MFA snapshot for each user is not reported as new devices.
+
+Sign-ins stored before the upgrade have no app, device or risk context, so only country/ISP-based signals can be learned from them. App and device baselines build up as new sign-ins arrive.
+
+### Adding authentication device monitoring
 
 If you are upgrading from a version that did not include authentication device monitoring, follow these steps:
 

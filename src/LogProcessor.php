@@ -13,16 +13,26 @@ class LogProcessor {
     private PDO $db;
     private GraphHelper $graphHelper;
     private Geolocation $geolocation;
+    private RiskScorer $riskScorer;
     private array $ipWhitelist = [];
     private array $usersProcessedForDeviceCheck = []; // Prevents checking the same user multiple times per run
 
     public function __construct() {
         $this->db = Database::getInstance();
+        $this->assertSchemaIsCurrent();
         $this->graphHelper = new GraphHelper();
         $this->geolocation = new Geolocation();
+        $this->riskScorer = new RiskScorer($this->db);
         $this->loadIpWhitelist();
     }
     
+    private function assertSchemaIsCurrent(): void {
+        $stmt = $this->db->query("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'login_logs' AND COLUMN_NAME = 'risk_level_during_signin'");
+        if ($stmt->fetchColumn() === false) {
+            throw new \RuntimeException("Database schema is out of date. Run 'php migrate_risk_scoring.php' once, then try again.");
+        }
+    }
+
     private function loadIpWhitelist(): void {
         $stmt = $this->db->query("SELECT ip_address FROM ip_whitelist");
         $this->ipWhitelist = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
@@ -56,6 +66,12 @@ class LogProcessor {
                 $deviceChanges = $this->checkForDeviceChanges($userId, $userPrincipalName);
                 if (!empty($deviceChanges)) {
                     $incidentsForEmail = array_merge($incidentsForEmail, $deviceChanges);
+                    foreach ($deviceChanges as $change) {
+                        // Without a prior snapshot every existing device looks "added", so only score real changes.
+                        if (!empty($change['had_snapshot'])) {
+                            $this->riskScorer->scoreDeviceChange($change['log_id']);
+                        }
+                    }
                 }
                 $this->usersProcessedForDeviceCheck[] = $userId;
             }
@@ -67,12 +83,31 @@ class LogProcessor {
             $loginWasSuccessful = ($status !== null && $status->getErrorCode() === 0);
             $loginStatusMessage = $loginWasSuccessful ? 'Success' : ('Failure: ' . ($status ? $status->getFailureReason() : 'Unknown'));
 
+            $device = $log->getDeviceDetail();
             $currentLogData = [
                 'entra_log_id' => $log->getId(), 'user_id' => $userId, 'user_principal_name' => $userPrincipalName,
                 'ip_address' => $ipAddress, 'login_time' => $loginTime->format('Y-m-d H:i:s'), 'status' => $loginStatusMessage,
                 'country' => $geoInfo['country'] ?? null, 'region' => $geoInfo['regionName'] ?? $geoInfo['region'] ?? null,
                 'city' => $geoInfo['city'] ?? null, 'lat' => $geoInfo['lat'] ?? null, 'lon' => $geoInfo['lon'] ?? null,
-                'is_impossible_travel' => false, 'is_region_change' => false, 'travel_speed_kph' => null, 'previous_log_id' => null
+                'is_impossible_travel' => false, 'is_region_change' => false, 'travel_speed_kph' => null, 'previous_log_id' => null,
+                // Context used by RiskScorer
+                'error_code' => $status ? $status->getErrorCode() : null,
+                'app_display_name' => $this->truncate($log->getAppDisplayName(), 255),
+                'resource_display_name' => $this->truncate($log->getResourceDisplayName(), 255),
+                'client_app_used' => $this->truncate($log->getClientAppUsed(), 100),
+                'device_id' => $this->truncate($device ? $device->getDeviceId() : null, 100),
+                'device_display_name' => $this->truncate($device ? $device->getDisplayName() : null, 255),
+                'device_os' => $this->truncate($device ? $device->getOperatingSystem() : null, 100),
+                'device_browser' => $this->truncate($device ? $device->getBrowser() : null, 255),
+                'is_compliant' => $this->boolToInt($device ? $device->getIsCompliant() : null),
+                'is_managed' => $this->boolToInt($device ? $device->getIsManaged() : null),
+                'is_interactive' => $this->boolToInt($log->getIsInteractive()),
+                'conditional_access_status' => $this->enumValue($log->getConditionalAccessStatus()),
+                'risk_level_during_signin' => $this->enumValue($log->getRiskLevelDuringSignIn()),
+                'risk_state' => $this->enumValue($log->getRiskState()),
+                'isp' => $this->truncate($geoInfo['isp'] ?? null, 255),
+                'is_proxy' => $this->boolToInt($geoInfo['is_proxy'] ?? null),
+                'is_hosting' => $this->boolToInt($geoInfo['is_hosting'] ?? null),
             ];
             
             $previousLogins = $this->getPreviousLoginsInLast24Hours($userId, $currentLogData['login_time']);
@@ -123,6 +158,13 @@ class LogProcessor {
             $newLogId = $this->saveLoginLog($currentLogData);
             $currentLogData['id'] = $newLogId; 
 
+            try {
+                $this->riskScorer->scoreLogin($currentLogData);
+            } catch (\Throwable $e) {
+                // Risk scoring is additive; it must never stop sign-ins being stored or alerts being sent.
+                error_log("Risk scoring failed for log {$newLogId}: " . $e->getMessage());
+            }
+
             if ($isImpossibleTravel) {
                 $previousLoginWasSuccessful = ($fastestPreviousLog['status'] === 'Success');
                 $isWhitelisted = $this->isIpWhitelisted($currentLogData['ip_address']) || $this->isIpWhitelisted($fastestPreviousLog['ip_address']);
@@ -153,6 +195,12 @@ class LogProcessor {
         }
 
         echo "Log processing complete.\n";
+        try {
+            $tiers = $this->riskScorer->refreshAllScores();
+            echo "Risk scores refreshed: " . implode(', ', array_map(fn($t, $n) => "$n $t", array_keys($tiers), $tiers)) . "\n";
+        } catch (\Throwable $e) {
+            error_log("Risk score refresh failed: " . $e->getMessage());
+        }
         $this->pruneOldLogs();
     }
 
@@ -160,6 +208,7 @@ class LogProcessor {
         $newIncidents = [];
         $currentMethodsRaw = $this->graphHelper->getAuthMethodsForUser($userId);
         $knownMethods = $this->getKnownDevicesForUser($userId);
+        $hadSnapshot = !empty($knownMethods);
 
         $currentMethods = [];
         foreach ($currentMethodsRaw as $method) {
@@ -192,7 +241,7 @@ class LogProcessor {
         foreach ($addedIds as $id) {
             $device = $currentMethods[$id];
             $logId = $this->logDeviceChange($userId, $userPrincipalName, $device['displayName'], 'Added');
-            $incident = ['type' => 'auth_device_change', 'change' => 'Added', 'user' => $userPrincipalName, 'device' => $device['displayName'], 'log_id' => $logId];
+            $incident = ['type' => 'auth_device_change', 'change' => 'Added', 'user' => $userPrincipalName, 'device' => $device['displayName'], 'log_id' => $logId, 'had_snapshot' => $hadSnapshot];
             $newIncidents[] = $incident;
             Mailer::sendUserAlert($userPrincipalName, 'auth_device_change', $incident, $this->db);
             echo "  [ALERT] New MFA device added for $userPrincipalName: " . $device['displayName'] . "\n";
@@ -201,7 +250,7 @@ class LogProcessor {
         foreach ($removedIds as $id) {
             $device = $knownMethods[$id];
             $logId = $this->logDeviceChange($userId, $userPrincipalName, $device['displayName'], 'Removed');
-            $incident = ['type' => 'auth_device_change', 'change' => 'Removed', 'user' => $userPrincipalName, 'device' => $device['displayName'], 'log_id' => $logId];
+            $incident = ['type' => 'auth_device_change', 'change' => 'Removed', 'user' => $userPrincipalName, 'device' => $device['displayName'], 'log_id' => $logId, 'had_snapshot' => $hadSnapshot];
             $newIncidents[] = $incident;
             Mailer::sendUserAlert($userPrincipalName, 'auth_device_change', $incident, $this->db);
             echo "  [ALERT] MFA device removed for $userPrincipalName: " . $device['displayName'] . "\n";
@@ -279,10 +328,23 @@ class LogProcessor {
     private function saveLoginLog(array $data): int {
         $data['is_impossible_travel'] = (int)($data['is_impossible_travel'] ?? false);
         $data['is_region_change'] = (int)($data['is_region_change'] ?? false);
-        $sql = "INSERT INTO login_logs (entra_log_id, user_id, user_principal_name, ip_address, login_time, status, country, region, city, lat, lon, is_impossible_travel, is_region_change, travel_speed_kph, previous_log_id) VALUES (:entra_log_id, :user_id, :user_principal_name, :ip_address, :login_time, :status, :country, :region, :city, :lat, :lon, :is_impossible_travel, :is_region_change, :travel_speed_kph, :previous_log_id)";
+        $columns = array_keys($data);
+        $sql = "INSERT INTO login_logs (" . implode(', ', $columns) . ") VALUES (" . implode(', ', array_map(fn($c) => ":$c", $columns)) . ")";
         $stmt = $this->db->prepare($sql);
         $stmt->execute($data);
         return (int)$this->db->lastInsertId();
+    }
+
+    private function truncate(?string $value, int $length): ?string {
+        return ($value === null || $value === '') ? null : mb_substr($value, 0, $length);
+    }
+
+    private function boolToInt($value): ?int {
+        return $value === null ? null : (int)(bool)$value;
+    }
+
+    private function enumValue(?object $enum): ?string {
+        return $enum !== null && method_exists($enum, 'value') ? $enum->value() : null;
     }
     
     private function calculateDistance(?float $lat1, ?float $lon1, ?float $lat2, ?float $lon2): float {
@@ -300,5 +362,7 @@ class LogProcessor {
         $stmt = $this->db->prepare("DELETE FROM login_logs WHERE login_time < NOW() - INTERVAL 180 DAY");
         $deletedRows = $stmt->execute() ? $stmt->rowCount() : 0;
         echo "Pruned $deletedRows old log entries.\n";
+        $riskPruned = $this->riskScorer->pruneOldData();
+        echo "Pruned {$riskPruned['risk_events']} risk events and {$riskPruned['baselines']} stale baseline values.\n";
     }
 }
